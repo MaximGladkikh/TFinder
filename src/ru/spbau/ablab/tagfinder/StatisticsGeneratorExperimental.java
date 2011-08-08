@@ -30,7 +30,9 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
 	public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
 	public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
+	public static final double TAG_CUTOFF = ConfigReader.getDoubleProperty("TAG_CUTOFF");
 
+	public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
 	public static final String SPECTRUM_FILE_SUFFIX = ConfigReader.getProperty("SPECTRUM_FILE_SUFFIX");
 	public static final String OUTPUT_FILE = ConfigReader.getProperty("OUTPUT_FILE");
 
@@ -39,11 +41,10 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	public static final double[] AA_AVG_MASS;
 
 	public static boolean doubleMasses = ConfigReader.getBoolProperty("DOUBLE_MASSES");
-	private static final int MAX_LENGTH = MAX_PATHS;
+	private static final int MAX_LENGTH = MAX_TAG_LENGTH + 1;
 
 	private static final String MATCHES_PATH = ConfigReader.getProperty("MATCHES_PATH");
 	private static final String PROTEIN_DB_PATH = ConfigReader.getProperty("PROTEIN_DB_PATH");
-	public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
 	private static final String SPECTRUM_FILE_PREFIX = ConfigReader.getProperty("SPECTRUM_FILE_PREFIX");
 
 	private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
@@ -111,7 +112,7 @@ public class StatisticsGeneratorExperimental implements Runnable {
 		writer.println("<table>");
 		printHeader(writer);
 		int[] found = new int[MAX_PATHS];
-		int[][] count = new int[MAX_LENGTH][MAX_PATHS];
+		int[][] count = new int[MAX_PATHS][MAX_LENGTH];
 
 		for (int id : scanIds) {
 			processScan(id, writer, count, found, scanToSpectrum);
@@ -150,6 +151,7 @@ public class StatisticsGeneratorExperimental implements Runnable {
 		writer.println("<th>#peaks</th>");
 		writer.println("<th>#tags</th>");
 		writer.println("<th><div>#proteins</div> matched set</th>");
+		writer.println("<th>E-value</th>");
 		for (int i = 1; i <= 10; ++i) {
 			writer.println("<th>tag#" + i + "</th>");
 		}
@@ -158,7 +160,7 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	private void printRatio(PrintWriter writer, int[] found, int scansProcessed) {
 		writer.println("<tr>");
 		writer.println("<th> % red </th>");
-		writer.println("<th/><th/><th/>");
+		writer.println("<th/><th/><th/><th/>");
 		for (int i = 0; i < MAX_PATHS; ++i) {
 			writer.println("<td>" + StringUtil.toStringPrecision(1. * found[i] / scansProcessed, 5) + "</td>");
 		}
@@ -168,7 +170,11 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	private void printFrequences(PrintWriter writer, int[][] count) {
 		for (int len = MAX_LENGTH - 1; len >= 0; --len) {
 			writer.println("<tr>");
-			writer.println("<th>" + len + "</th>");
+			writeThTaggedValue(writer, "length");
+			writeThTaggedValue(writer, "");
+			writeThTaggedValue(writer, "=");
+			writeThTaggedValue(writer, "");
+			writeThTaggedValue(writer, len);
 			for (int i = 0; i < MAX_PATHS; ++i) {
 				writer.println("<td>" + count[i][len] + "</td>");
 			}
@@ -177,32 +183,69 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	}
 
 	private void processScan(int id, PrintWriter writer, int[][] count, int[] found, Map<Integer, Spectrum> scanToSpectrum) {
-		writer.println("<tr>");
-		writer.println("<th>" + id + "</th>");
-		writer.println("<th>" + scanToSpectrum.get(id).envelopes.length);
-		writer.println("</th>");
+		writeOpenTag(writer, "tr");
+		writeThTaggedValue(writer, id);
+		writeThTaggedValue(writer, scanToSpectrum.get(id).envelopes.length);
 		Protein protein = getProtein(id);
 		TreeSet<Path> paths = getAllPaths(id, protein, scanToSpectrum);
-		writer.println("<th>" + paths.size() + "</th>");
+		writeThTaggedValue(writer, paths.size());
 		printMatches(writer, paths);
+		writeOpenTh(writer);
+		writer.printf("%.2E", getEValue(id));
+		writeCloseTh(writer);
 		printTags(writer, count, found, protein, paths);
-		writer.println("</tr>");
+		writeCloseTag(writer, "tr");
 		writer.flush();
 		System.out.println(id + " ok");
 	}
 
+	private void writeThTaggedValue(PrintWriter writer, Object value) {
+		writeOpenTh(writer);
+		writer.println(value);
+		writeCloseTh(writer);
+	}
+
+	private void writeOpenTh(PrintWriter writer) {
+		writeOpenTag(writer, "th");
+	}
+
+	private void writeOpenTag(PrintWriter writer, String string) {
+		writer.print('<');
+		writeTagSuffix(writer, string);
+	}
+
+	private void writeTagSuffix(PrintWriter writer, String string) {
+		writer.print(string);
+		writer.println(">");
+	}
+
+	private void writeCloseTh(PrintWriter writer) {
+		writeCloseTag(writer, "th");
+	}
+
+	private void writeCloseTag(PrintWriter writer, String string) {
+		writer.print("</");
+		writeTagSuffix(writer, string);
+	}
+
 	private void printTags(PrintWriter writer, int[][] count, int[] found, Protein protein, TreeSet<Path> paths) {
 		int pathN = 0;
+		boolean foundFirst = false;
 		for (Path path : paths) {
-			if (pathN == MAX_PATHS) { 
+			if (pathN == MAX_PATHS) {
 				break;
 			}
 			writer.println("<td>");
 			writer.print("<span");
 			boolean notPrint = false;
 			if (protein.contains(path)) {
-				writer.println(" style=\"color:red\">");
-				++found[pathN];
+				if (!foundFirst) {
+					writer.println(" style=\"color:red;font-weight:bold\">");
+					++found[pathN];
+					foundFirst = true;
+				} else {
+					writer.println(" style=\"color:magenta\">");
+				}
 			} else {
 				Path subPath = path.subPath(1, path.edges.length - 1);
 				if (subPath.length() > 2 && protein.contains(subPath)) {
@@ -219,7 +262,7 @@ public class StatisticsGeneratorExperimental implements Runnable {
 					writer.println(" style=\"color:blue\">");
 				}
 			}
-			 ++count[pathN][path.length()];
+			++count[pathN][path.length()];
 			if (!notPrint) {
 				writer.println(path);
 				writer.println(" " + protein.getMaxMatch(path));
@@ -255,6 +298,10 @@ public class StatisticsGeneratorExperimental implements Runnable {
 		return new Protein(matchesData[scanToRow.get(id)][12]);
 	}
 
+	private double getEValue(int id) {
+		return Double.parseDouble(matchesData[scanToRow.get(id)][13]);
+	}
+
 	private String getProteinName(int id) {
 		return matchesData[scanToRow.get(id)][6];
 	}
@@ -272,13 +319,9 @@ public class StatisticsGeneratorExperimental implements Runnable {
 		return new TreeSet<Path>(bestScore.keySet());
 	}
 
-	private void addTags(Envelope[] envelopes, int v, Path path, TreeMap<Path, Double> bestScore, Protein protein,
-			ArrayList<Double> peaks) {
+	private void addTags(Envelope[] envelopes, int v, Path path, TreeMap<Path, Double> bestScore, Protein protein, ArrayList<Double> peaks) {
 		if (path.length() > 2) {
-			Double d = bestScore.get(path);
-			if (d == null) {
-				d = Double.NEGATIVE_INFINITY;
-			}
+			Double d = (d = bestScore.get(path)) == null ? Double.NEGATIVE_INFINITY : d;
 			bestScore.put(path, Math.max(d, path.score));
 		}
 		if (path.length() >= MAX_TAG_LENGTH) {
