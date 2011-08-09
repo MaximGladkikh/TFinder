@@ -52,9 +52,6 @@ public class Spectrum {
 		scanner.skipLine("BEGIN ENVELOPE");
 		double score = scanner.getNextDoubleValue("SCORE");
 		double mass = scanner.getNextDoubleValue("REAL_MONO_MASS");
-		// if (id == 710) {
-		// System.err.println("mass = " + mass);
-		// }
 		double intensity = scanner.getNextDoubleValue("REAL_INTE_SUM");
 		Envelope envelope = new Envelope(mass, score, intensity);
 		scanner.skipLine("END ENVELOPE");

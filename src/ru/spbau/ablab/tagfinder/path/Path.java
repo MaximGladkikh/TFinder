@@ -10,35 +10,36 @@ public class Path implements Comparable<Path> {
 	
 	public static final Comparator<Path> LENGTH_FIRST_COMPARATOR = new LengthFirstComparator();
 
-	public Edge[] edges;
-	public double score;
+	public final double score;
+    public final Edge edge;
+    public final int edges;
+    private final int length;
+    private final Path parent;
 
-	public Path(String path, double score) {
-		this.edges = new Edge[path.length()];
-		for (int i = 0; i < path.length(); ++i) {
-			this.edges[i] = new AAEdge(path.charAt(i));
-		}
-		this.score = score;
-	}
+    public Path(Path parent, double score, Edge edge) {
+        this.score = score;
+        this.edge = edge;
+        if (parent != null && parent.edge == null) {
+            parent = null;
+        }
+        length = (parent == null ? 0 : parent.length()) + (edge instanceof AAEdge ? 1 : GAP_LENGTH_IN_AACOUNT) ;
+        edges = 1 + (parent == null ? 0 : parent.edges);
+        this.parent = parent;
+    }
+
+    private Path(Edge[] edges, int pos, double score) {
+        this(pos <= 0 ? null : new Path(edges, pos - 1, score), score, pos >= 0 ? edges[pos] : null);
+    }
 
 	public Path(Edge[] edges) {
-		this.edges = edges;
+        this(edges, 0);
 	}
 
 	public Path(Edge[] edges, double score) {
-		this.edges = edges;
-		this.score = score;
+        this(edges, edges.length - 1, score);
 	}
 
 	public int length() {
-		int length = 0;
-		for (Edge edge : edges) {
-			if (edge instanceof AAEdge) {
-				++length;
-			} else {
-				length += GAP_LENGTH_IN_AACOUNT;
-			}
-		}
 		return length;
 	}
 	
@@ -65,37 +66,56 @@ public class Path implements Comparable<Path> {
 		return LENGTH_FIRST_COMPARATOR.compare(this, o);
 	}
 
-	private int lexicographicCompare(Path o) {
-		for (int i = 0; i < edges.length && i < o.edges.length; ++i) {
-			int d = edges[i].compareTo(o.edges[i]);
-			if (d != 0) {
-				return d;
-			}
-		}
-		return 0;
+	private int lexicographicCompare(Path p2) {
+        Path p1 = this;
+        while (p1 != null && p2 != null) {
+            int d = p1.edge.compareTo(p2.edge);
+            if (d != 0) {
+                return d;
+            }
+            p1 = p1.parent;
+            p2 = p2.parent;
+        }
+        if (p1 == null) {
+            return p2 == null ? 0 : -1;
+        }
+		return 1;
 	}
 
 	private int compareLengths(Path o) {
-		if (edges.length > o.edges.length) {
+		if (length > o.length) {
 			return -1;
-		} else if (edges.length < o.edges.length) {
+		} else if (length < o.length) {
 			return 1;
 		}
 		return 0;
 	}
 
 	public Path append(Edge edge, double score) {
-		Edge[] edges = new Edge[this.edges.length + 1];
-		System.arraycopy(this.edges, 0, edges, 0, this.edges.length);
-		edges[this.edges.length] = edge;
-//		return new Path(edges, Math.min(this.score, Math.cos(Math.log(score))));
-		return new Path(edges, this.score + Math.log(score));
+        return new Path(this, this.score + Math.log(score), edge);
 	}
+
+    private static final Edge[] edgesBuffer = new Edge[StatisticsGenerator.MAX_TAG_LENGTH];
+
+    public Edge[] getEdges() {
+        Path path = this;
+        int i = 0;
+        while (path != null) {
+            edgesBuffer[i++] = path.edge;
+            path = path.parent;
+        }
+        Edge[] ans = new Edge[i];
+        for (int j = 0; j < i; ++j) {
+            ans[j] = edgesBuffer[i - j - 1];
+        }
+        return ans;
+    }
+
 
 	@Override
 	public String toString() {
-		StringBuilder builder = new StringBuilder();
-		for (Edge edge : edges) {
+        StringBuilder builder = new StringBuilder();
+		for (Edge edge : getEdges()) {
 			builder.append(edge);
 		}
 		return builder.toString();
@@ -105,22 +125,9 @@ public class Path implements Comparable<Path> {
 		if (start > end) {
 			throw new IllegalArgumentException();
 		}
+        Edge[] currentEdges = getEdges();
 		Edge[] edges = new Edge[end - start];
-        System.arraycopy(this.edges, start, edges, 0, end - start);
+        System.arraycopy(currentEdges, start, edges, 0, end - start);
 		return new Path(edges);
 	}
-
-	// private int getMaxMatch(String protein, String path) {
-	// int ans = 0;
-	// for (int i = 0; i + path.length() <= protein.length(); ++i) {
-	// int count = 0;
-	// for (int j = 0; j < path.length(); ++j) {
-	// if (protein.charAt(i + j) == path.charAt(j)) {
-	// ++count;
-	// }
-	// }
-	// ans = Math.max(ans, count);
-	// }
-	// return ans;
-	// }
 }

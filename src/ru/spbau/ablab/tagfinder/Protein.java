@@ -41,40 +41,39 @@ public class Protein {
 	}
 
 	public int getMaxMatch(Path path) {
-		Edge[] rev = new Edge[path.length()];
-		for (int i = 0; i < path.length(); ++i) {
-			rev[path.length() - 1 - i] = path.edges[i];
+        Edge[] edges = path.getEdges();
+        Edge[] rev = new Edge[edges.length];
+		for (int i = 0; i < edges.length; ++i) {
+			rev[edges.length - 1 - i] = edges[i];
 		}
-		return Math.max(getMaxMatch(path, masses), getMaxMatch(new Path(rev), masses));
+		return Math.max(getMaxMatch(edges, masses), getMaxMatch(rev, masses));
 	}
 
-	private int getMaxMatch(Path path, double[] masses) {
+	private int getMaxMatch(Edge[] edges, double[] masses) {
 		int maxScore = 0;
 		for (int i = 0; i < masses.length - 1; ++i) {
 			int pos = i;
 			int matchedEdges = 0;
-			for (int j = 0; j < path.edges.length && pos < masses.length - 1; ++j) {
-				if (path.edges[j] instanceof AAEdge) {
+			for (int j = 0; j < edges.length && pos < masses.length - 1; ++j) {
+				if (edges[j] instanceof AAEdge) {
 					int add = 0;
-					if (protein.charAt(pos) == path.edges[j].getLetter()) {
+					if (protein.charAt(pos) == edges[j].getLetter()) {
 						add = 1;
 					}
 					++pos;
 					matchedEdges += add;
 				} else {
-					double needMass = masses[pos] + path.edges[j].getMass();
+					double needMass = masses[pos] + edges[j].getMass();
 					int nextInd = masses.length - 1;
 					int add = 0;
-                    if (MassComparator.edgeMatches(masses[pos], masses[pos + 1], path.edges[j].getMass())) {
-//					if (MassComparator.same(needMass, masses[pos + 1])) {
+                    if (MassComparator.edgeMatches(masses[pos], masses[pos + 1], edges[j].getMass())) {
 						nextInd = pos + 1;
 						add = 1;
 					} else if (masses.length - pos < 10) {
 						for (int k = pos + 1; k < masses.length; ++k) {
 							if (Math.abs(masses[k] - needMass) < Math.abs(masses[nextInd] - needMass)) {
 								nextInd = k;
-                                if (MassComparator.edgeMatches(masses[pos], masses[k], path.edges[j].getMass())) {
-//								if (MassComparator.same(needMass, masses[k])) {
+                                if (MassComparator.edgeMatches(masses[pos], masses[k], edges[j].getMass())) {
 									add = 1;
 									break;
 								}
@@ -95,8 +94,7 @@ public class Protein {
 						if (nextInd - 1 > pos && Math.abs(masses[nextInd - 1] - needMass) < Math.abs(masses[nextInd] - needMass)) {
 							--nextInd;
 						}
-                        if (MassComparator.edgeMatches(masses[pos], masses[nextInd], path.edges[j].getMass())) {
-//						if (MassComparator.same(needMass, masses[nextInd])) {
+                        if (MassComparator.edgeMatches(masses[pos], masses[nextInd], edges[j].getMass())) {
 							add = 1;
 						}
 					}

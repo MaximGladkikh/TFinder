@@ -234,13 +234,14 @@ public class StatisticsGenerator implements Runnable {
                     writer.printTagSuffix("style=\"color:magenta\"");
                 }
             } else {
-                Path subPath = path.subPath(1, path.edges.length - 1);
+                Path subPath = path.subPath(1, path.edges - 1);
+                Edge[] edges = path.getEdges();
                 if (subPath.length() > 2 && protein.contains(subPath)) {
                     writer.printTagSuffix("style=\"color:blue\"");
-                    writer.println(path.edges[0]);
+                    writer.println(edges[0]);
                     writer.printCloseTag("span");
                     writer.printTaggedValue("span", subPath, "style=\"color:red\"");
-                    writer.printTaggedValue("span", path.edges[path.edges.length - 1] + " " + protein.getMaxMatch(subPath), "style=\"color:blue\"");
+                    writer.printTaggedValue("span", edges[path.edges - 1] + " " + protein.getMaxMatch(subPath), "style=\"color:blue\"");
                     notPrint = true;
                 } else {
                     writer.printTagSuffix("style=\"color:blue\"");
@@ -296,7 +297,7 @@ public class StatisticsGenerator implements Runnable {
         for (int i = 0; i < envelopes.length; ++i) {
             ArrayList<Double> list = new ArrayList<Double>();
             list.add(envelopes[i].mass);
-            addTags(envelopes, i, new Path(new Edge[0], envelopes[i].score), bestScore, list);
+            addTags(envelopes, i, new Path(new Edge[0], envelopes[i].score/*Math.log(envelopes[i].intensity)*/), bestScore, list);
         }
 
         return new TreeSet<Path>(bestScore.keySet());
@@ -314,7 +315,7 @@ public class StatisticsGenerator implements Runnable {
             double needMass = envelopes[v].mass + AA_MONO_MASS[i];
             for (int j = v + 1; j < envelopes.length && MassComparator.compare(needMass, envelopes[j].mass) >= 0; ++j) {
                 if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[j].mass, AA_MONO_MASS[i])) {
-                    Path newPath = path.append(new AAEdge(AA_LET[i]), envelopes[j].intensity);
+                    Path newPath = path.append(new AAEdge(AA_LET[i]), envelopes[j].score);
                     peaks.add(envelopes[j].mass);
                     addTags(envelopes, j, newPath, bestScore, peaks);
                     peaks.remove(peaks.size() - 1);
@@ -327,7 +328,7 @@ public class StatisticsGenerator implements Runnable {
                     double needMass = envelopes[v].mass + AA_MONO_MASS[i] + AA_MONO_MASS[j];
                     for (int k = v + 1; k < envelopes.length && MassComparator.compare(needMass, envelopes[k].mass) >= 0; ++k) {
                         if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[k].mass, AA_MONO_MASS[i] + AA_MONO_MASS[j])) {
-                            Path newPath = path.append(new GapEdge(needMass - envelopes[v].mass), envelopes[k].intensity);
+                            Path newPath = path.append(new GapEdge(needMass - envelopes[v].mass), envelopes[k].score);
                             peaks.add(envelopes[k].mass);
                             addTags(envelopes, k, newPath, bestScore, peaks);
                             peaks.remove(peaks.size() - 1);

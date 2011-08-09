@@ -65,8 +65,8 @@ public class SpectrumVisualizer extends JFrame {
 
                 private void updateSelection(int mx, int my, Spectrum spectrum) {
                     for (Envelope envelope : spectrum.envelopes) {
-                        int xl = getPeakX(getXCoeff(), envelope);
-                        int yl = getPeakY(getYCoeff(), envelope);
+                        int xl = getPeakX(getXCoefficient(), envelope);
+                        int yl = getPeakY(getYCoefficient(), envelope);
                         int xr = xl + BOX_SIZE;
                         int yr = yl + BOX_SIZE;
                         if (mx >= xl && mx <= xr && my >= yl && my <= yr) {
@@ -85,8 +85,8 @@ public class SpectrumVisualizer extends JFrame {
                 return;
             }
 
-            double cy = getYCoeff();
-            double cx = getXCoeff();
+            double cy = getYCoefficient();
+            double cx = getXCoefficient();
 
             paintSpectrum(spectrum, g, cy, cx, Color.RED);
             if (virtualSpectrum != null) {
@@ -133,11 +133,11 @@ public class SpectrumVisualizer extends JFrame {
             return getHeight() - 1 - (int) (cy * envelope.intensity);
         }
 
-        private double getXCoeff() {
+        private double getXCoefficient() {
             return 0.95 * getWidth() / maxMass;
         }
 
-        private double getYCoeff() {
+        private double getYCoefficient() {
             return coeff * getHeight() / maxInt;
         }
 
