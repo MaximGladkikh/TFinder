@@ -29,7 +29,6 @@ public class StatisticsGeneratorExperimental implements Runnable {
 	public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
 	public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
 	public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
-	public static final double TAG_CUTOFF = ConfigReader.getDoubleProperty("TAG_CUTOFF");
 
 	public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
 	public static final String SPECTRUM_FILE_SUFFIX = ConfigReader.getProperty("SPECTRUM_FILE_SUFFIX");
@@ -259,7 +258,8 @@ public class StatisticsGeneratorExperimental implements Runnable {
 		for (int i = 0; i < AA_LET.length; ++i) {
 			double needMass = envelopes[v].mass + AA_MONO_MASS[i];
 			for (int j = v + 1; j < envelopes.length && MassComparator.compare(needMass, envelopes[j].mass) >= 0; ++j) {
-				if (MassComparator.same(needMass, envelopes[j].mass)) {
+                if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[j].mass, AA_MONO_MASS[i])) {
+//				if (MassComparator.same(needMass, envelopes[j].mass)) {
 					Path newPath = path.append(new AAEdge(AA_LET[i]), envelopes[j].intensity);
 					peaks.add(envelopes[j].mass);
 					addTags(envelopes, j, newPath, bestScore, protein, peaks);
@@ -272,7 +272,8 @@ public class StatisticsGeneratorExperimental implements Runnable {
 				for (int j = 0; j < AA_LET.length; ++j) {
 					double needMass = envelopes[v].mass + AA_MONO_MASS[i] + AA_MONO_MASS[j];
 					for (int k = v + 1; k < envelopes.length && MassComparator.compare(needMass, envelopes[k].mass) >= 0; ++k) {
-						if (MassComparator.same(needMass, envelopes[k].mass)) {
+                        if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[k].mass, AA_MONO_MASS[i] + AA_MONO_MASS[j])) {
+//						if (MassComparator.same(needMass, envelopes[k].mass)) {
 							Path newPath = path.append(new GapEdge(needMass - envelopes[v].mass), envelopes[k].intensity);
 							peaks.add(envelopes[k].mass);
 							addTags(envelopes, k, newPath, bestScore, protein, peaks);

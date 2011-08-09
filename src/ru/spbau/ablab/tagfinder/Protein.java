@@ -65,14 +65,16 @@ public class Protein {
 					double needMass = masses[pos] + path.edges[j].getMass();
 					int nextInd = masses.length - 1;
 					int add = 0;
-					if (MassComparator.same(needMass, masses[pos + 1])) {
+                    if (MassComparator.edgeMatches(masses[pos], masses[pos + 1], path.edges[j].getMass())) {
+//					if (MassComparator.same(needMass, masses[pos + 1])) {
 						nextInd = pos + 1;
 						add = 1;
 					} else if (masses.length - pos < 10) {
 						for (int k = pos + 1; k < masses.length; ++k) {
 							if (Math.abs(masses[k] - needMass) < Math.abs(masses[nextInd] - needMass)) {
 								nextInd = k;
-								if (MassComparator.same(needMass, masses[k])) {
+                                if (MassComparator.edgeMatches(masses[pos], masses[k], path.edges[j].getMass())) {
+//								if (MassComparator.same(needMass, masses[k])) {
 									add = 1;
 									break;
 								}
@@ -93,7 +95,8 @@ public class Protein {
 						if (nextInd - 1 > pos && Math.abs(masses[nextInd - 1] - needMass) < Math.abs(masses[nextInd] - needMass)) {
 							--nextInd;
 						}
-						if (MassComparator.same(needMass, masses[nextInd])) {
+                        if (MassComparator.edgeMatches(masses[pos], masses[nextInd], path.edges[j].getMass())) {
+//						if (MassComparator.same(needMass, masses[nextInd])) {
 							add = 1;
 						}
 					}
