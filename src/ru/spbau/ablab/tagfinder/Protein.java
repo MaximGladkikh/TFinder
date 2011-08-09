@@ -1,7 +1,7 @@
 package ru.spbau.ablab.tagfinder;
 
-import static ru.spbau.ablab.tagfinder.StatisticsGeneratorExperimental.AA_LET;
-import static ru.spbau.ablab.tagfinder.StatisticsGeneratorExperimental.AA_MONO_MASS;
+import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_LET;
+import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_MONO_MASS;
 import ru.spbau.ablab.tagfinder.path.AAEdge;
 import ru.spbau.ablab.tagfinder.path.Edge;
 import ru.spbau.ablab.tagfinder.path.Path;
@@ -35,7 +35,7 @@ public class Protein {
 
 	public boolean contains(Path path) {
 		boolean ans = getMaxMatch(path) == path.length();
-		assert !StatisticsGeneratorExperimental.EDGE_OF_TWO_AA
+		assert !StatisticsGenerator.EDGE_OF_TWO_AA
 				|| ans == (protein.contains(path.toString()) || revProtein.contains(path.toString()));
 		return ans;
 	}
@@ -56,7 +56,7 @@ public class Protein {
 			for (int j = 0; j < path.edges.length && pos < masses.length - 1; ++j) {
 				if (path.edges[j] instanceof AAEdge) {
 					int add = 0;
-					if (protein.charAt(pos) == path.edges[j].getLetter().charValue()) {
+					if (protein.charAt(pos) == path.edges[j].getLetter()) {
 						add = 1;
 					}
 					++pos;

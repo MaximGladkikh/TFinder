@@ -4,15 +4,16 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Arrays;
 
-import ru.spbau.ablab.tagfinder.StatisticsGeneratorExperimental;
+import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.util.FastScanner;
 
 public class Spectrum {
 	public final Envelope[] envelopes;
 	public final int id;
 	public final double parentMass;
+    public final double eValue;
 
-	public Spectrum(int id, File file) throws FileNotFoundException {
+	public Spectrum(int id, File file, double eValue) throws FileNotFoundException {
 		this.id = id;
 		FastScanner scanner = new FastScanner(file);
 		Envelope[] tenvelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER")];
@@ -20,11 +21,12 @@ public class Spectrum {
 		for (int i = 0; i < tenvelopes.length; ++i) {
 			tenvelopes[i] = readEnvelope(scanner);
 		}
-		if (StatisticsGeneratorExperimental.doubleMasses) {
+		if (StatisticsGenerator.doubleMasses) {
 			tenvelopes = doubleEnvelopes(tenvelopes);
 		}
 		envelopes = tenvelopes;
 		Arrays.sort(envelopes);
+        this.eValue = eValue;
 		scanner.close();
 	}
 
@@ -38,9 +40,10 @@ public class Spectrum {
 		return envelopes;
 	}
 
-	public Spectrum(int id, Envelope[] envelopes, double parentMass) {
+	public Spectrum(int id, Envelope[] envelopes, double parentMass, double eValue) {
 		this.id = id;
 		this.envelopes = envelopes;
+        this.eValue = eValue;
 		this.parentMass = parentMass;
 		Arrays.sort(envelopes);
 	}

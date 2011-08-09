@@ -9,7 +9,7 @@ public class ConfigReader {
 	private static final String CONFIG_FILE_PATH = "stat.cfg";
 	private static final HashMap<String, String> PROPERTY_MAP = new HashMap<String, String>();
 	static {
-		FastScanner scanner = null;
+		FastScanner scanner;
 		try {
 			scanner = new FastScanner(new File(CONFIG_FILE_PATH));
 		} catch (FileNotFoundException e) {
@@ -50,4 +50,8 @@ public class ConfigReader {
 		}
 		return s;
 	}
+
+    public static void setProperty(String key, String value) {
+        PROPERTY_MAP.put(key, value);
+    }
 }

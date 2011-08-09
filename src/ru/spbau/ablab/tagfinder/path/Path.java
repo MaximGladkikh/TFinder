@@ -2,7 +2,7 @@ package ru.spbau.ablab.tagfinder.path;
 
 import java.util.Comparator;
 
-import ru.spbau.ablab.tagfinder.StatisticsGeneratorExperimental;
+import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 
 public class Path implements Comparable<Path> {
 	public static final double SCORE_EPS = 1e-5;
@@ -56,7 +56,7 @@ public class Path implements Comparable<Path> {
 
 	@Override
 	public int compareTo(Path o) {
-		if (StatisticsGeneratorExperimental.SCORE_BY_LENGH) {
+		if (StatisticsGenerator.SCORE_BY_LENGTH) {
 			return LENGTH_FIRST_COMPARATOR.compare(this, o);
 		}
 		if (Math.abs(score - o.score) > SCORE_EPS) {
@@ -106,9 +106,7 @@ public class Path implements Comparable<Path> {
 			throw new IllegalArgumentException();
 		}
 		Edge[] edges = new Edge[end - start];
-		for (int i = start; i < end; ++i) {
-			edges[i - start] = this.edges[i];
-		}
+        System.arraycopy(this.edges, start, edges, 0, end - start);
 		return new Path(edges);
 	}
 
