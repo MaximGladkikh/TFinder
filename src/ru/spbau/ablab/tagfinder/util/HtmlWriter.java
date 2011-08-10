@@ -7,8 +7,17 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
 public class HtmlWriter extends PrintWriter {
+    private final String name;
+
     public HtmlWriter(String fileName) throws FileNotFoundException {
         super(fileName);
+        if (fileName.contains("/")) {
+            fileName = fileName.substring(fileName.lastIndexOf("/"));
+        }
+        name = fileName.substring(0, fileName.indexOf('.')).replace('_', ' ');
+        printOpenTag("html");
+        printHeadTag();
+        printOpenTag("body");
     }
 
     public void printHeader() {
@@ -23,6 +32,18 @@ public class HtmlWriter extends PrintWriter {
         for (int i = 1; i <= MAX_PATHS; ++i) {
             printThTaggedValue("tag# " + i);
         }
+    }
+
+    public void close() {
+        printCloseTag("body");
+        printCloseTag("html");
+        super.close();
+    }
+
+    private void printHeadTag() {
+        printOpenTag("head");
+        printTaggedValue("title", name);
+        printCloseTag("head");
     }
 
     public void printRatio(int[] found, int scansProcessed) {

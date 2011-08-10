@@ -31,7 +31,7 @@ public class ConfigReader {
 		return Integer.parseInt(getProperty(key));
 	}
 	
-	public static boolean getBoolProperty(String key) {
+	public static boolean getBooleanProperty(String key) {
 		return Boolean.parseBoolean(getProperty(key));
 	}
 	

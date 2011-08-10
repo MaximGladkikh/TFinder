@@ -23,9 +23,10 @@ import ru.spbau.ablab.tagfinder.util.HtmlWriter;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 public class StatisticsGenerator implements Runnable {
-    public static final boolean GET_ENTIRE_PROTEIN = ConfigReader.getBoolProperty("GET_ENTIRE_PROTEIN");
-    public static final boolean SCORE_BY_LENGTH = ConfigReader.getBoolProperty("SCORE_BY_LENGTH");
-    public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBoolProperty("EDGE_OF_TWO_AA");
+    public static final boolean USE_DEFAULT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME");
+    public static final boolean GET_ENTIRE_PROTEIN = ConfigReader.getBooleanProperty("GET_ENTIRE_PROTEIN");
+    public static final boolean SCORE_BY_LENGTH = ConfigReader.getBooleanProperty("SCORE_BY_LENGTH");
+    public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBooleanProperty("EDGE_OF_TWO_AA");
     public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
     public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
     public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
@@ -38,7 +39,7 @@ public class StatisticsGenerator implements Runnable {
     public static final double[] AA_MONO_MASS;
     public static final double[] AA_AVG_MASS;
 
-    public static boolean doubleMasses = ConfigReader.getBoolProperty("DOUBLE_MASSES");
+    public static boolean doubleMasses = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
 
     private static final String MATCHES_PATH = ConfigReader.getProperty("MATCHES_PATH");
     private static final String PROTEIN_DB_PATH = ConfigReader.getProperty("PROTEIN_DB_PATH");
@@ -78,11 +79,11 @@ public class StatisticsGenerator implements Runnable {
     public void runFor(ArrayList<Integer> scanIds) {
         try {
             initDB();
-            if (ConfigReader.getBoolProperty("ALIGN")) {
+            if (ConfigReader.getBooleanProperty("ALIGN")) {
                 scanToSpectrum = scanToVirtualSpectrum;
             }
             scanIds = intersect(scanIds == null ? scanToSpectrum.keySet() : scanIds);
-            HtmlWriter writer = new HtmlWriter(OUTPUT_FILE);
+            HtmlWriter writer = new HtmlWriter(getOutputFilename());
             printStatistics(writer, scanToSpectrum, scanIds);
             writer.close();
         } catch (FileNotFoundException e) {
@@ -185,7 +186,7 @@ public class StatisticsGenerator implements Runnable {
         for (String line; (line = scanner.nextLine()) != null; ) {
             if (line.charAt(0) == '>') {
                 if (peptideName != null) {
-                    ans.put(peptideName, new Protein(protein.toString().trim()));
+                    ans.put(peptideName, new Protein(protein.toString().trim().replace('I', 'L')));
                 }
                 peptideName = line.substring(1);
                 protein = new StringBuilder();
@@ -339,7 +340,7 @@ public class StatisticsGenerator implements Runnable {
         }
     }
 
-    protected TreeMap<Integer, Spectrum> getExperimentalSpectra() throws FileNotFoundException {
+    private TreeMap<Integer, Spectrum> getExperimentalSpectra() throws FileNotFoundException {
         TreeMap<Integer, Spectrum> ans = new TreeMap<Integer, Spectrum>();
         File envDir = new File(ENVELOPES_DIR);
         for (File file : envDir.listFiles()) {
@@ -381,5 +382,9 @@ public class StatisticsGenerator implements Runnable {
         }
         matchesScanner.close();
         return ans.toArray(new String[ans.size()][]);
+    }
+
+    public String getOutputFilename() {
+        return (EDGE_OF_TWO_AA ? "2" : "1") + "_" + ((int)(MassComparator.ERROR_THRESHOLD * 1e6)) + "ppm_" + (SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
     }
 }

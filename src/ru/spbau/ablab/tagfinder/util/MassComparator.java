@@ -7,8 +7,8 @@ import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 public class MassComparator implements Comparator<Double> {
     public static final MassComparator MASS_COMPARATOR = new MassComparator();
     public static final double ERROR_THRESHOLD = ConfigReader.getDoubleProperty("ERROR_THRESHOLD");
-    private static final boolean RELATIVE_COMPARE = ConfigReader.getBoolProperty("RELATIVE_COMPARE");
-    private static final boolean REL_COMPARE_WITHOUT_MASS = ConfigReader.getBoolProperty("REL_COMPARE_WITHOUT_MASS");
+    private static final boolean RELATIVE_COMPARE = ConfigReader.getBooleanProperty("RELATIVE_COMPARE");
+    private static final boolean REL_COMPARE_WITHOUT_MASS = ConfigReader.getBooleanProperty("REL_COMPARE_WITHOUT_MASS");
 
     private MassComparator() {
     }
