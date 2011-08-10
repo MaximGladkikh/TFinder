@@ -41,7 +41,7 @@ public class SpectrumVisualizer extends JFrame {
         private double maxInt;
         private double maxMass;
         private Envelope selectedPeak;
-        private double coeff = 0.95;
+        private double coefficient = 0.95;
 
         public Painter() {
             addMouseMotionListener(new MouseMotionAdapter() {
@@ -103,7 +103,7 @@ public class SpectrumVisualizer extends JFrame {
                     getWidth() - g.getFontMetrics().charsWidth(Double.toString(maxMass).toCharArray(), 0, massString.length()), getHeight());
 
             if (selectedPeak != null) {
-                String message = selectedPeak.mass + " " + selectedPeak.intensity;
+                String message = selectedPeak.getMass() + " " + selectedPeak.intensity;
                 int width = g.getFontMetrics().charsWidth(message.toCharArray(), 0, message.length());
                 int height = g.getFontMetrics().getHeight();
                 int xl = Math.min(getPeakX(cx, selectedPeak) + BOX_SIZE, getWidth() - width);
@@ -126,7 +126,7 @@ public class SpectrumVisualizer extends JFrame {
         }
 
         private int getPeakX(double cx, Envelope envelope) {
-            return (int) (cx * envelope.mass);
+            return (int) (cx * envelope.getMass());
         }
 
         private int getPeakY(double cy, Envelope envelope) {
@@ -138,7 +138,7 @@ public class SpectrumVisualizer extends JFrame {
         }
 
         private double getYCoefficient() {
-            return coeff * getHeight() / maxInt;
+            return coefficient * getHeight() / maxInt;
         }
 
         @Override
@@ -167,7 +167,7 @@ public class SpectrumVisualizer extends JFrame {
         private void relaxMaxValues(Spectrum spectrum) {
             for (Envelope envelope : spectrum.envelopes) {
                 maxInt = Math.max(maxInt, envelope.intensity);
-                maxMass = Math.max(maxMass, envelope.mass);
+                maxMass = Math.max(maxMass, envelope.getMass());
             }
         }
 
@@ -236,14 +236,14 @@ public class SpectrumVisualizer extends JFrame {
                     for (Envelope envelope : painter.spectrum.envelopes) {
                         Envelope nearest = null;
                         for (Envelope envelope2 : painter.virtualSpectrum.envelopes) {
-                            if (nearest == null || Math.abs(envelope.mass - envelope2.mass) < Math.abs(envelope.mass - nearest.mass)) {
+                            if (nearest == null || Math.abs(envelope.getMass() - envelope2.getMass()) < Math.abs(envelope.getMass() - nearest.getMass())) {
                                 nearest = envelope2;
                             }
                         }
-                        tableData[count][0] = "" + envelope.mass;
+                        tableData[count][0] = "" + envelope.getMass();
                         assert nearest != null;
-                        tableData[count][1] = "" + nearest.mass;
-                        tableData[count][2] = "" + Math.abs(envelope.mass - nearest.mass);
+                        tableData[count][1] = "" + nearest.getMass();
+                        tableData[count][2] = "" + Math.abs(envelope.getMass() - nearest.getMass());
                         ++count;
                     }
                     JTable table = new JTable(tableData, new String[]{"Virtual Peaks", "Closest Experimental Peaks", "Mass Difference"});
@@ -252,10 +252,10 @@ public class SpectrumVisualizer extends JFrame {
                     diffFrame.setSize((int) diffFrame.getPreferredSize().getWidth(), (int) diffFrame.getPreferredSize().getHeight() + 40);
                     diffFrame.setVisible(true);
                 } else if (e.getActionCommand().equals("+")) {
-                    painter.coeff *= 2;
+                    painter.coefficient *= 2;
                     painter.repaint();
                 } else if (e.getActionCommand().equals("-")) {
-                    painter.coeff /= 2;
+                    painter.coefficient /= 2;
                     painter.repaint();
                 }
             }

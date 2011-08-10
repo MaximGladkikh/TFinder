@@ -30,6 +30,7 @@ public class StatisticsGenerator implements Runnable {
     public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
     public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
     public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
+    public static final boolean DOUBLE_MASSES = !ConfigReader.getBooleanProperty("ALIGN") && ConfigReader.getBooleanProperty("DOUBLE_MASSES");
 
     public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
     public static final String SPECTRUM_FILE_SUFFIX = ConfigReader.getProperty("SPECTRUM_FILE_SUFFIX");
@@ -39,13 +40,8 @@ public class StatisticsGenerator implements Runnable {
     public static final double[] AA_MONO_MASS;
     public static final double[] AA_AVG_MASS;
 
-    public static boolean doubleMasses = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
-
-    private static final String MATCHES_PATH = ConfigReader.getProperty("MATCHES_PATH");
-    private static final String PROTEIN_DB_PATH = ConfigReader.getProperty("PROTEIN_DB_PATH");
-    private static final String SPECTRUM_FILE_PREFIX = ConfigReader.getProperty("SPECTRUM_FILE_PREFIX");
-    private static final String ALIGN_RESULT_FILE = ConfigReader.getProperty("ALIGN_RESULT_FILE");
-    private static final String ALIGN_SPECTRA_FILE = ConfigReader.getProperty("ALIGN_SPECTRA_FILE");
+    private static final AAEdge[] AA_EDGES;
+    private static final GapEdge[][] GAP_EDGES;
 
     private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
 
@@ -59,7 +55,23 @@ public class StatisticsGenerator implements Runnable {
             AA_MONO_MASS[i] = scanner.nextDouble();
             AA_AVG_MASS[i] = scanner.nextDouble();
         }
+        AA_EDGES = new AAEdge[AA_LET.length];
+        GAP_EDGES = new GapEdge[AA_LET.length][AA_LET.length];
+        for (int i = 0; i < AA_EDGES.length; ++i) {
+            AA_EDGES[i] = new AAEdge(AA_LET[i]);
+            for (int j = 0; j < AA_EDGES.length; ++j) {
+                GAP_EDGES[i][j] = new GapEdge(AA_MONO_MASS[i] + AA_MONO_MASS[j]);
+            }
+        }
     }
+
+
+    private static final String MATCHES_PATH = ConfigReader.getProperty("MATCHES_PATH");
+    private static final String PROTEIN_DB_PATH = ConfigReader.getProperty("PROTEIN_DB_PATH");
+    private static final String SPECTRUM_FILE_PREFIX = ConfigReader.getProperty("SPECTRUM_FILE_PREFIX");
+    private static final String ALIGN_RESULT_FILE = ConfigReader.getProperty("ALIGN_RESULT_FILE");
+    private static final String ALIGN_SPECTRA_FILE = ConfigReader.getProperty("ALIGN_SPECTRA_FILE");
+
 
     private String[][] matchesData;
     private Map<Integer, Integer> scanToRow;
@@ -83,7 +95,7 @@ public class StatisticsGenerator implements Runnable {
                 scanToSpectrum = scanToVirtualSpectrum;
             }
             scanIds = intersect(scanIds == null ? scanToSpectrum.keySet() : scanIds);
-            HtmlWriter writer = new HtmlWriter(getOutputFilename());
+            HtmlWriter writer = new HtmlWriter(USE_DEFAULT_FILENAME ? OUTPUT_FILE : getOutputFilename());
             printStatistics(writer, scanToSpectrum, scanIds);
             writer.close();
         } catch (FileNotFoundException e) {
@@ -93,7 +105,7 @@ public class StatisticsGenerator implements Runnable {
         System.out.println("done");
     }
 
-    public ArrayList<Integer> intersect(Collection<Integer> scanToSpectrum) {
+    private ArrayList<Integer> intersect(Collection<Integer> scanToSpectrum) {
         ArrayList<Integer> ans = new ArrayList<Integer>();
         HashSet<String> differentNames = new HashSet<String>();
         for (int id : scanToSpectrum) {
@@ -116,7 +128,7 @@ public class StatisticsGenerator implements Runnable {
         return ans;
     }
 
-    public void printStatistics(HtmlWriter writer, Map<Integer, Spectrum> scanToSpectrum, ArrayList<Integer> scanIds) {
+    private void printStatistics(HtmlWriter writer, Map<Integer, Spectrum> scanToSpectrum, ArrayList<Integer> scanIds) {
         writer.printOpenTag("table", "cellpadding=0 cellspacing=20");
         writer.printHeader();
         int[] found = new int[MAX_PATHS];
@@ -129,15 +141,14 @@ public class StatisticsGenerator implements Runnable {
         writer.printCloseTag("table");
     }
 
-    public void initDB() throws FileNotFoundException {
+    private void initDB() throws FileNotFoundException {
         proteinDB = getProteinDB();
         matchesData = getMatches();
         scanToSpectrum = getExperimentalSpectra();
         scanToVirtualSpectrum = getVirtualSpectra();
     }
 
-    protected TreeMap<Integer, Spectrum> getVirtualSpectra() throws FileNotFoundException {
-        StatisticsGenerator.doubleMasses = false;
+    private TreeMap<Integer, Spectrum> getVirtualSpectra() throws FileNotFoundException {
         HashMap<Integer, Integer> idToScan = getIdToScanMap();
         FastScanner scanner = new FastScanner(new File(ALIGN_RESULT_FILE));
         TreeMap<Integer, Spectrum> ans = new TreeMap<Integer, Spectrum>();
@@ -151,14 +162,14 @@ public class StatisticsGenerator implements Runnable {
             double eValue = scanner.getNextDoubleProperty("E_VALUE");
             scanner.skipLine("BEGIN MATCH_PAIR");
             ArrayList<Envelope> envelopes = new ArrayList<Envelope>();
-            for (String s; !(s = scanner.nextLine().trim()).equals("END MATCH_PAIR");) {
-                String[] ss = s.split("	+");
-                double mass = Double.parseDouble(ss[3]);
+            for (String s; !(s = scanner.nextLine().trim()).equals("END MATCH_PAIR"); ) {
+                String[] strings = s.split("	+");
+                double mass = Double.parseDouble(strings[3]);
                 if (!scanToSpectrum.containsKey(id)) {
                     continue;
                 }
                 Envelope closestExp = scanToSpectrum.get(id).getClosest(mass);
-                mass = ss[4].equals("B") ? mass : (parentMass - mass);
+                mass = strings[4].equals("B") ? mass : (parentMass - mass);
                 envelopes.add(new Envelope(mass, closestExp.score, closestExp.intensity));
             }
             ans.put(id, new Spectrum(id, envelopes.toArray(new Envelope[envelopes.size()]), parentMass, eValue));
@@ -205,7 +216,7 @@ public class StatisticsGenerator implements Runnable {
         Protein protein = getProtein(id);
         TreeSet<Path> paths = getAllPaths(id, scanToSpectrum);
         writer.printThTaggedValue(paths.size());
-        printMatches(writer, paths);
+        printProteinDBMatches(writer, paths);
         writer.printOpenTh();
         writer.printf("%.2E", scanToVirtualSpectrum.get(id).eValue);
         writer.printCloseTh();
@@ -235,16 +246,25 @@ public class StatisticsGenerator implements Runnable {
                     writer.printTagSuffix("style=\"color:magenta\"");
                 }
             } else {
-                Path subPath = path.subPath(1, path.edges - 1);
-                Edge[] edges = path.getEdges();
-                if (subPath.length() > 2 && protein.contains(subPath)) {
-                    writer.printTagSuffix("style=\"color:blue\"");
-                    writer.println(edges[0]);
-                    writer.printCloseTag("span");
-                    writer.printTaggedValue("span", subPath, "style=\"color:red\"");
-                    writer.printTaggedValue("span", edges[path.edges - 1] + " " + protein.getMaxMatch(subPath), "style=\"color:blue\"");
-                    notPrint = true;
-                } else {
+                for (int mask = 1; mask < 4; ++mask) {
+                    Path subPath = path.subPath(mask & 1, path.edges - mask / 2);
+                    Edge[] edges = path.getEdges();
+                    if (subPath.length() > 0 && protein.contains(subPath)) {
+                        writer.printTagSuffix("style=\"color:blue\"");
+                        if (mask % 2 == 1) {
+                            writer.println(edges[0]);
+                        }
+                        writer.printCloseTag("span");
+                        writer.printTaggedValue("span", subPath, "style=\"color:red\"");
+                        if (mask / 2 == 1) {
+                            writer.printTaggedValue("span", edges[path.edges - 1], "style=\"color:blue\"");
+                        }
+                        writer.printTaggedValue("span", protein.getMaxMatch(subPath), "style=\"color:blue\"");
+                        notPrint = true;
+                        break;
+                    }
+                }
+                if (!notPrint) {
                     writer.printTagSuffix("style=\"color:blue\"");
                 }
             }
@@ -259,7 +279,7 @@ public class StatisticsGenerator implements Runnable {
         }
     }
 
-    private void printMatches(HtmlWriter writer, TreeSet<Path> paths) {
+    private void printProteinDBMatches(HtmlWriter writer, TreeSet<Path> paths) {
         int pathN = 0;
         HashSet<String> matchedProteins = new HashSet<String>();
         for (Path path : paths) {
@@ -293,18 +313,24 @@ public class StatisticsGenerator implements Runnable {
 
     private TreeSet<Path> getAllPaths(int id, Map<Integer, Spectrum> scanToSpectrum) {
         TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);
-
-        Envelope[] envelopes = scanToSpectrum.get(id).envelopes;
+        Spectrum spectrum = scanToSpectrum.get(id);
+        double parentMass = spectrum.parentMass;
+        Envelope[] envelopes = spectrum.envelopes;
+        Envelope[] reversedEnvelopes = new Envelope[envelopes.length];
+        for (int i = 0; i < envelopes.length; ++i) {
+            reversedEnvelopes[i] = envelopes[envelopes.length - 1 - i].getReversed(parentMass);
+        }
+        Spectrum reversedSpectrum = new Spectrum(id, reversedEnvelopes, parentMass, spectrum.eValue);
+        boolean[] usedEnvelopes = new boolean[envelopes.length];
         for (int i = 0; i < envelopes.length; ++i) {
             ArrayList<Double> list = new ArrayList<Double>();
-            list.add(envelopes[i].mass);
-            addTags(envelopes, i, new Path(new Edge[0], envelopes[i].score/*Math.log(envelopes[i].intensity)*/), bestScore, list);
+            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score/*Math.log(envelopes[i].intensity)*/), bestScore, list, null, usedEnvelopes);
         }
 
         return new TreeSet<Path>(bestScore.keySet());
     }
 
-    private void addTags(Envelope[] envelopes, int v, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks) {
+    private void addTags(Spectrum spectrum, Spectrum reversedSpectrum, int envelopeId, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, boolean[] usedEnvelopes) {
         if (path.length() > 2) {
             Double d = (d = bestScore.get(path)) == null ? Double.NEGATIVE_INFINITY : d;
             bestScore.put(path, Math.max(d, path.score));
@@ -312,30 +338,46 @@ public class StatisticsGenerator implements Runnable {
         if (path.length() >= MAX_TAG_LENGTH) {
             return;
         }
+        Envelope v = (envelopeId >= 0 ? spectrum.envelopes[envelopeId] : reversedSpectrum.envelopes[-envelopeId - 1]);
+        double currentMass = v.getMass(parentMassCorrection);
+        peaks.add(currentMass);
+        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId + 1)] = true;
         for (int i = 0; i < AA_LET.length; ++i) {
-            double needMass = envelopes[v].mass + AA_MONO_MASS[i];
-            for (int j = v + 1; j < envelopes.length && MassComparator.compare(needMass, envelopes[j].mass) >= 0; ++j) {
-                if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[j].mass, AA_MONO_MASS[i])) {
-                    Path newPath = path.append(new AAEdge(AA_LET[i]), envelopes[j].score);
-                    peaks.add(envelopes[j].mass);
-                    addTags(envelopes, j, newPath, bestScore, peaks);
-                    peaks.remove(peaks.size() - 1);
+            findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, AA_EDGES[i], usedEnvelopes);
+        }
+        if (EDGE_OF_TWO_AA) {
+            for (GapEdge[] GAP_EDGE : GAP_EDGES) {
+                for (GapEdge aGAP_EDGE : GAP_EDGE) {
+                    findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, aGAP_EDGE, usedEnvelopes);
                 }
             }
         }
-        if (EDGE_OF_TWO_AA) {
-            for (int i = 0; i < AA_LET.length; ++i) {
-                for (int j = 0; j < AA_LET.length; ++j) {
-                    double needMass = envelopes[v].mass + AA_MONO_MASS[i] + AA_MONO_MASS[j];
-                    for (int k = v + 1; k < envelopes.length && MassComparator.compare(needMass, envelopes[k].mass) >= 0; ++k) {
-                        if (MassComparator.edgeMatches(envelopes[v].mass, envelopes[k].mass, AA_MONO_MASS[i] + AA_MONO_MASS[j])) {
-                            Path newPath = path.append(new GapEdge(needMass - envelopes[v].mass), envelopes[k].score);
-                            peaks.add(envelopes[k].mass);
-                            addTags(envelopes, k, newPath, bestScore, peaks);
-                            peaks.remove(peaks.size() - 1);
-                        }
-                    }
+        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId + 1)] = false;
+        peaks.remove(peaks.size() - 1);
+    }
+
+    private void findEdges(Spectrum spectrum, Spectrum reversedSpectrum, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, double currentMass, Edge edge, boolean[] usedEnvelopes) {
+        double needMass = currentMass + edge.getMass();
+        for (int next = spectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass()); next < spectrum.envelopes.length && MassComparator.edgeMatches(currentMass, spectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass()); ++next) {
+            Envelope nextEnvelope = spectrum.envelopes[next];
+            if (usedEnvelopes[next]) {
+                continue;
+            }
+            Path newPath = path.append(edge, nextEnvelope.score);
+            addTags(spectrum, reversedSpectrum, next, newPath, bestScore, peaks, parentMassCorrection, usedEnvelopes);
+        }
+        if (DOUBLE_MASSES) {
+            for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), true, parentMassCorrection); next < spectrum.envelopes.length && MassComparator.edgeMatches(currentMass, spectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass); ++next) {
+                Envelope nextEnvelope = reversedSpectrum.envelopes[next];
+                if (usedEnvelopes[spectrum.envelopes.length - 1 - next]) {
+                    continue;
                 }
+                Path newPath = path.append(edge, nextEnvelope.score);
+                Double newMassCorrection = parentMassCorrection;
+                if (newMassCorrection == null) {
+                    newMassCorrection = currentMass + edge.getMass() - spectrum.parentMass + nextEnvelope.getMass();
+                }
+                addTags(spectrum, reversedSpectrum, -next - 1, newPath, bestScore, peaks, newMassCorrection, usedEnvelopes);
             }
         }
     }
@@ -385,6 +427,6 @@ public class StatisticsGenerator implements Runnable {
     }
 
     public String getOutputFilename() {
-        return (EDGE_OF_TWO_AA ? "2" : "1") + "_" + ((int)(MassComparator.ERROR_THRESHOLD * 1e6)) + "ppm_" + (SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
+        return (EDGE_OF_TWO_AA ? "2" : "1") + "_" + ((int) (MassComparator.ERROR_THRESHOLD * 1e6)) + "ppm_" + (SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
     }
 }
