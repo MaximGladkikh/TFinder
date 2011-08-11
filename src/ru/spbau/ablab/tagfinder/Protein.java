@@ -35,8 +35,7 @@ public class Protein {
 
 	public boolean contains(Path path) {
 		boolean ans = getMaxMatch(path) == path.length();
-		assert !StatisticsGenerator.EDGE_OF_TWO_AA
-				|| ans == (protein.contains(path.toString()) || revProtein.contains(path.toString()));
+		assert StatisticsGenerator.EDGE_OF_TWO_AA || ans == (protein.contains(path.toString()) || revProtein.contains(path.toString()));
 		return ans;
 	}
 

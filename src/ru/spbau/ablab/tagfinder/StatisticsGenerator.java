@@ -87,7 +87,7 @@ public class StatisticsGenerator implements Runnable {
             if (ConfigReader.getBooleanProperty("ALIGN")) {
                 scanToSpectrum = scanToVirtualSpectrum;
             }
-            scanIds = intersect(scanIds == null ? scanToSpectrum.keySet() : scanIds);
+            scanIds = filter(scanIds == null ? scanToSpectrum.keySet() : scanIds);
             HtmlWriter writer = new HtmlWriter(USE_DEFAULT_FILENAME ? OUTPUT_FILE : getOutputFilename());
             printStatistics(writer, scanToSpectrum, scanIds);
             writer.close();
@@ -98,25 +98,19 @@ public class StatisticsGenerator implements Runnable {
         System.out.println("done");
     }
 
-    private ArrayList<Integer> intersect(Collection<Integer> scanToSpectrum) {
+    private ArrayList<Integer> filter(Collection<Integer> scanToSpectrum) {
         ArrayList<Integer> ans = new ArrayList<Integer>();
         HashSet<String> differentNames = new HashSet<String>();
         for (int id : scanToSpectrum) {
             if (scanToRow.containsKey(id)) {
-                if (differentNames.add(getProteinName(id))) {
+                String proteinName = getProteinName(id);
+                assert proteinName != null;
+                if (differentNames.add(proteinName)) {
                     ans.add(id);
                 }
             }
         }
-        ArrayList<String> toRemove = new ArrayList<String>();
-        for (String s : proteinDB.keySet()) {
-            if (!differentNames.contains(s)) {
-                toRemove.add(s);
-            }
-        }
-        for (String s : toRemove) {
-            proteinDB.remove(s);
-        }
+        proteinDB.keySet().retainAll(differentNames);
         Collections.sort(ans);
         return ans;
     }
@@ -142,6 +136,7 @@ public class StatisticsGenerator implements Runnable {
     }
 
     private TreeMap<Integer, Spectrum> getVirtualSpectra() throws FileNotFoundException {
+        assert scanToSpectrum != null;
         HashMap<Integer, Integer> idToScan = getIdToScanMap();
         FastScanner scanner = new FastScanner(new File(ALIGN_RESULT_FILE));
         TreeMap<Integer, Spectrum> ans = new TreeMap<Integer, Spectrum>();
@@ -331,24 +326,22 @@ public class StatisticsGenerator implements Runnable {
         if (path.length() >= MAX_TAG_LENGTH) {
             return;
         }
-//        if (path.toString().equals("KFCH")) {
-//            System.err.println(peaks);
-//        }
         Envelope v = (envelopeId >= 0 ? spectrum.envelopes[envelopeId] : reversedSpectrum.envelopes[-envelopeId - 1]);
         double currentMass = v.getMass(parentMassCorrection);
         peaks.add(currentMass);
-        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId)] = true;
-        for (int i = 0; i < AA_LET.length; ++i) {
-            findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, AA_EDGES[i], usedEnvelopes);
+        int arrayIndex = envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId);
+        usedEnvelopes[arrayIndex] = true;
+        for (Edge edge : AA_EDGES) {
+            findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes);
         }
         if (EDGE_OF_TWO_AA) {
             for (GapEdge[] edges : GAP_EDGES) {
-                for (GapEdge edge : edges) {
+                for (Edge edge : edges) {
                     findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes);
                 }
             }
         }
-        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId)] = false;
+        usedEnvelopes[arrayIndex] = false;
         peaks.remove(peaks.size() - 1);
     }
 
@@ -371,8 +364,6 @@ public class StatisticsGenerator implements Runnable {
                 Path newPath = path.append(edge, nextEnvelope.score);
                 Double newMassCorrection = parentMassCorrection;
                 if (newMassCorrection == null) {
-//                    System.err.println(Math.abs(Math.abs(currentMass - nextEnvelope.getMass()) - edge.getMass()));
-//                    System.err.println(MassComparator.edgeMatches(currentMass, nextEnvelope.getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection));
                     newMassCorrection = currentMass + edge.getMass() - spectrum.parentMass + nextEnvelope.getMass(parentMassCorrection);
                 }
                 addTags(spectrum, reversedSpectrum, -next - 1, newPath, bestScore, peaks, newMassCorrection, usedEnvelopes);
@@ -416,6 +407,7 @@ public class StatisticsGenerator implements Runnable {
                 current[i] = s;
             }
             current[12] = current[12].replace("I", "L");
+            current[12] = null; //Can't use match string due to unknown format
             int scanId = Integer.parseInt(current[1]);
             scanToRow.put(scanId, ans.size());
             ans.add(current);

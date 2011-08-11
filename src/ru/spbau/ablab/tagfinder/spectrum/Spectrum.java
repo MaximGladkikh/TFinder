@@ -1,15 +1,18 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
+import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.FastScanner;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import static ru.spbau.ablab.tagfinder.util.MassComparator.FIRST_BY_EDGE_ERROR;
 
 public class Spectrum {
+    public static final boolean REMOVE_DUPLICATES = ConfigReader.getBooleanProperty("REMOVE_DUPLICATES");
     public final Envelope[] envelopes;
     public final int id;
     public final double parentMass;
@@ -19,15 +22,33 @@ public class Spectrum {
     public Spectrum(int id, File file, double eValue) throws FileNotFoundException {
         this.id = id;
         FastScanner scanner = new FastScanner(file);
-        envelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER")];
+        Envelope[] envelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER")];
         this.parentMass = scanner.getNextDoubleValue("MONOISOTOPIC_MASS");
         for (int i = 0; i < envelopes.length; ++i) {
             envelopes[i] = readEnvelope(scanner);
         }
         Arrays.sort(envelopes);
+        this.envelopes = unique(envelopes);
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
         this.eValue = eValue;
         scanner.close();
+    }
+
+    private Envelope[] unique(Envelope[] envelopes) {
+        if (!REMOVE_DUPLICATES) {
+            return envelopes;
+        }
+        ArrayList<Envelope> ans = new ArrayList<Envelope>();
+        for (int i = 0, j; i < envelopes.length; i = j) {
+            int best = i;
+            for (j = i; j < envelopes.length && envelopes[i].compareTo(envelopes[j]) == 0; ++j) {
+                if (envelopes[best].score < envelopes[j].score) {
+                    best = j;
+                }
+            }
+            ans.add(envelopes[best]);
+        }
+        return ans.toArray(new Envelope[ans.size()]);
     }
 
     public Spectrum(int id, Envelope[] envelopes, double parentMass, double eValue) {
