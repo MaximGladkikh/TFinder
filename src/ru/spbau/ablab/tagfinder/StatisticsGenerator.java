@@ -2,14 +2,7 @@ package ru.spbau.ablab.tagfinder;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 import ru.spbau.ablab.tagfinder.path.AAEdge;
 import ru.spbau.ablab.tagfinder.path.Edge;
@@ -30,7 +23,7 @@ public class StatisticsGenerator implements Runnable {
     public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
     public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
     public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
-    public static final boolean DOUBLE_MASSES = !ConfigReader.getBooleanProperty("ALIGN") && ConfigReader.getBooleanProperty("DOUBLE_MASSES");
+    public static final boolean DOUBLE_MASSES = /*!ConfigReader.getBooleanProperty("ALIGN") && */ConfigReader.getBooleanProperty("DOUBLE_MASSES");
 
     public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
     public static final String SPECTRUM_FILE_SUFFIX = ConfigReader.getProperty("SPECTRUM_FILE_SUFFIX");
@@ -324,7 +317,7 @@ public class StatisticsGenerator implements Runnable {
         boolean[] usedEnvelopes = new boolean[envelopes.length];
         for (int i = 0; i < envelopes.length; ++i) {
             ArrayList<Double> list = new ArrayList<Double>();
-            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score/*Math.log(envelopes[i].intensity)*/), bestScore, list, null, usedEnvelopes);
+            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score), bestScore, list, null, usedEnvelopes);
         }
 
         return new TreeSet<Path>(bestScore.keySet());
@@ -338,21 +331,24 @@ public class StatisticsGenerator implements Runnable {
         if (path.length() >= MAX_TAG_LENGTH) {
             return;
         }
+//        if (path.toString().equals("KFCH")) {
+//            System.err.println(peaks);
+//        }
         Envelope v = (envelopeId >= 0 ? spectrum.envelopes[envelopeId] : reversedSpectrum.envelopes[-envelopeId - 1]);
         double currentMass = v.getMass(parentMassCorrection);
         peaks.add(currentMass);
-        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId + 1)] = true;
+        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId)] = true;
         for (int i = 0; i < AA_LET.length; ++i) {
             findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, AA_EDGES[i], usedEnvelopes);
         }
         if (EDGE_OF_TWO_AA) {
-            for (GapEdge[] GAP_EDGE : GAP_EDGES) {
-                for (GapEdge aGAP_EDGE : GAP_EDGE) {
-                    findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, aGAP_EDGE, usedEnvelopes);
+            for (GapEdge[] edges : GAP_EDGES) {
+                for (GapEdge edge : edges) {
+                    findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes);
                 }
             }
         }
-        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId + 1)] = false;
+        usedEnvelopes[envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId)] = false;
         peaks.remove(peaks.size() - 1);
     }
 
@@ -367,7 +363,7 @@ public class StatisticsGenerator implements Runnable {
             addTags(spectrum, reversedSpectrum, next, newPath, bestScore, peaks, parentMassCorrection, usedEnvelopes);
         }
         if (DOUBLE_MASSES) {
-            for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), true, parentMassCorrection); next < spectrum.envelopes.length && MassComparator.edgeMatches(currentMass, spectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass); ++next) {
+            for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), parentMassCorrection); next < reversedSpectrum.envelopes.length && MassComparator.edgeMatches(currentMass, reversedSpectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection); ++next) {
                 Envelope nextEnvelope = reversedSpectrum.envelopes[next];
                 if (usedEnvelopes[spectrum.envelopes.length - 1 - next]) {
                     continue;
@@ -375,7 +371,9 @@ public class StatisticsGenerator implements Runnable {
                 Path newPath = path.append(edge, nextEnvelope.score);
                 Double newMassCorrection = parentMassCorrection;
                 if (newMassCorrection == null) {
-                    newMassCorrection = currentMass + edge.getMass() - spectrum.parentMass + nextEnvelope.getMass();
+//                    System.err.println(Math.abs(Math.abs(currentMass - nextEnvelope.getMass()) - edge.getMass()));
+//                    System.err.println(MassComparator.edgeMatches(currentMass, nextEnvelope.getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection));
+                    newMassCorrection = currentMass + edge.getMass() - spectrum.parentMass + nextEnvelope.getMass(parentMassCorrection);
                 }
                 addTags(spectrum, reversedSpectrum, -next - 1, newPath, bestScore, peaks, newMassCorrection, usedEnvelopes);
             }

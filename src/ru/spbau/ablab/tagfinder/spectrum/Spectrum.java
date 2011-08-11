@@ -1,13 +1,11 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
+import ru.spbau.ablab.tagfinder.util.FastScanner;
+import ru.spbau.ablab.tagfinder.util.MassComparator;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Arrays;
-
-import ru.spbau.ablab.tagfinder.StatisticsGenerator;
-import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.FastScanner;
-import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 import static ru.spbau.ablab.tagfinder.util.MassComparator.FIRST_BY_EDGE_ERROR;
 
@@ -51,10 +49,7 @@ public class Spectrum {
         return envelope;
     }
 
-    public int getFirstMatchingEnvelopeIndex(double firstMass, double needMass, double edgeMass, boolean edgeToY, Double massCorrection) {
-        if (!edgeToY) {
-            return getFirstMatchingEnvelopeIndex(firstMass, needMass, edgeMass);
-        }
+    public int getFirstMatchingEnvelopeIndex(double firstMass, double needMass, double edgeMass, Double massCorrection) {
         if (massCorrection == null) {
             int index = getClosestIndex(needMass);
             while (index >= 0 && Math.abs(Math.abs(envelopes[index].getMass(massCorrection) - firstMass) - edgeMass) < massEps) {
@@ -63,14 +58,14 @@ public class Spectrum {
             ++index;
             return index;
         }
-        return getFirstMatchingEnvelopeIndex(firstMass, needMass, edgeMass, massCorrection);
+        return getFirstMatchingCorrectedEnvelopeIndex(firstMass, needMass, edgeMass, massCorrection);
     }
 
     public int getFirstMatchingEnvelopeIndex(double firstMass, double needMass, double edgeMass) {
-        return getFirstMatchingEnvelopeIndex(firstMass, needMass, edgeMass, 0);
+        return getFirstMatchingCorrectedEnvelopeIndex(firstMass, needMass, edgeMass, 0);
     }
 
-    private int getFirstMatchingEnvelopeIndex(double firstMass, double needMass, double edgeMass, double delta) {
+    private int getFirstMatchingCorrectedEnvelopeIndex(double firstMass, double needMass, double edgeMass, double delta) {
         int index = getClosestIndex(needMass);
         while (index >= 0 && MassComparator.edgeMatches(firstMass, envelopes[index].getMass() + delta, edgeMass)) {
             --index;

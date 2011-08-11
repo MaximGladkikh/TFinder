@@ -28,21 +28,18 @@ public class MassComparator implements Comparator<Double> {
         return d1 < d2 ? -1 : 1;
     }
 
-    public static boolean edgeMatches(double m1, double m2, double edgeMass, Double parentMass) {
-        if (parentMass == null) {
-            return edgeMatches(m1, m2, edgeMass);
+    public static boolean edgeMatches(double m1, double m2, double edgeMass, double parentMass, Double massCorrection) {
+        if (massCorrection == null) {
+            return Math.abs(Math.abs(m1 - m2) - edgeMass) <= FIRST_BY_EDGE_ERROR * parentMass;
         }
-        return Math.abs(Math.abs(m1 - m2) - edgeMass) <= FIRST_BY_EDGE_ERROR * parentMass;
+        return edgeMatches(m1, m2, edgeMass);
     }
 
     public static boolean edgeMatches(double m1, double m2, double edgeMass) {
+        double difference = Math.abs(Math.abs(m1 - m2) - edgeMass);
         if (REL_COMPARE_WITHOUT_MASS) {
-            return Math.abs(Math.abs(m1 - m2) - edgeMass) <= edgeMass * ERROR_THRESHOLD;
+            return difference <= edgeMass * ERROR_THRESHOLD;
         }
-        return same(m1 + edgeMass, m2);
-    }
-
-    public static boolean same(double d1, double d2) {
-        return compare(d1, d2) == 0;
+        return difference <= ERROR_THRESHOLD * (m1 + m2);
     }
 }
