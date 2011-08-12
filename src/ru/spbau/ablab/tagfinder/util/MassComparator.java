@@ -1,8 +1,8 @@
 package ru.spbau.ablab.tagfinder.util;
 
-import java.util.Comparator;
-
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
+
+import java.util.Comparator;
 
 public class MassComparator implements Comparator<Double> {
     public static final MassComparator MASS_COMPARATOR = new MassComparator();

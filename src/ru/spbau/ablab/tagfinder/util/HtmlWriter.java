@@ -1,10 +1,10 @@
 package ru.spbau.ablab.tagfinder.util;
 
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_PATHS;
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_TAG_LENGTH;
-
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+
+import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_PATHS;
+import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_TAG_LENGTH;
 
 public class HtmlWriter extends PrintWriter {
     private final String name;

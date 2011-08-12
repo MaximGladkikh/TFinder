@@ -16,10 +16,9 @@ public class Spectrum {
     public final Envelope[] envelopes;
     public final int id;
     public final double parentMass;
-    public final double eValue;
     public final double massEps;
 
-    public Spectrum(int id, File file, double eValue) throws FileNotFoundException {
+    public Spectrum(int id, File file) throws FileNotFoundException {
         this.id = id;
         FastScanner scanner = new FastScanner(file);
         Envelope[] envelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER")];
@@ -30,7 +29,6 @@ public class Spectrum {
         Arrays.sort(envelopes);
         this.envelopes = unique(envelopes);
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
-        this.eValue = eValue;
         scanner.close();
     }
 
@@ -51,10 +49,9 @@ public class Spectrum {
         return ans.toArray(new Envelope[ans.size()]);
     }
 
-    public Spectrum(int id, Envelope[] envelopes, double parentMass, double eValue) {
+    public Spectrum(int id, Envelope[] envelopes, double parentMass) {
         this.id = id;
         this.envelopes = envelopes;
-        this.eValue = eValue;
         this.parentMass = parentMass;
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
         Arrays.sort(envelopes);

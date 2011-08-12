@@ -22,10 +22,11 @@ import javax.swing.KeyStroke;
 
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
+import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.FastScanner;
 
 public class SpectrumVisualizer extends JFrame {
-    private static final String envFile = StatisticsGenerator.SPECTRUM_FILE_SUFFIX.substring(1);
+    private static final String envFile = Database.SPECTRUM_FILE_SUFFIX.substring(1);
     private static final String FRAME_TITLE = "Spectrum Vizualizer";
     private static final long serialVersionUID = 1L;
 
@@ -210,7 +211,7 @@ public class SpectrumVisualizer extends JFrame {
                     if (fileChooser.showOpenDialog(mainFrame) == JFileChooser.APPROVE_OPTION) {
                         File file = fileChooser.getSelectedFile();
                         String path = file.getAbsolutePath();
-                        String str = StatisticsGenerator.SPECTRUM_FILE_SUFFIX;
+                        String str = Database.SPECTRUM_FILE_SUFFIX;
                         if (!path.contains(str)) {
                             return;
                         }
@@ -223,7 +224,7 @@ public class SpectrumVisualizer extends JFrame {
                             for (int i = 0; i < virEnv.length; ++i) {
                                 virEnv[i] = new Envelope(masses[i], intensities[i], intensities[i]);
                             }
-                            painter.setSpectrum(new Spectrum(0, file, 0), new Spectrum(0, virEnv, 0, 0));
+                            painter.setSpectrum(new Spectrum(0, file), new Spectrum(0, virEnv, 0));
                         } catch (FileNotFoundException e1) {
                             e1.printStackTrace();
                         }
