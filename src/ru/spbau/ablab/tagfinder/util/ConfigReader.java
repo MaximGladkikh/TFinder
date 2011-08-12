@@ -1,5 +1,7 @@
 package ru.spbau.ablab.tagfinder.util;
 
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.HashMap;

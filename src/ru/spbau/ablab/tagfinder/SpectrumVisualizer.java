@@ -23,7 +23,7 @@ import javax.swing.KeyStroke;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.Database;
-import ru.spbau.ablab.tagfinder.util.FastScanner;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 public class SpectrumVisualizer extends JFrame {
     private static final String envFile = Database.SPECTRUM_FILE_SUFFIX.substring(1);

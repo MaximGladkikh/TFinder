@@ -3,6 +3,8 @@ package ru.spbau.ablab.tagfinder.path;
 import java.util.Comparator;
 
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
+import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
+import ru.spbau.ablab.tagfinder.path.edges.Edge;
 
 public class Path implements Comparable<Path> {
 	public static final double SCORE_EPS = 1e-5;

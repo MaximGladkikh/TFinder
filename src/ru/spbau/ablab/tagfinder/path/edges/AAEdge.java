@@ -1,4 +1,4 @@
-package ru.spbau.ablab.tagfinder.path;
+package ru.spbau.ablab.tagfinder.path.edges;
 
 import static ru.spbau.ablab.tagfinder.Protein.AA_MASS_ARRAY;
 import ru.spbau.ablab.tagfinder.util.MassComparator;

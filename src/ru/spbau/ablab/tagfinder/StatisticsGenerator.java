@@ -1,16 +1,17 @@
 package ru.spbau.ablab.tagfinder;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 
-import ru.spbau.ablab.tagfinder.path.AAEdge;
-import ru.spbau.ablab.tagfinder.path.Edge;
-import ru.spbau.ablab.tagfinder.path.GapEdge;
+import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
+import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.path.Path;
+import ru.spbau.ablab.tagfinder.path.edges.GapEdge;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.*;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
+import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 
 public class StatisticsGenerator implements Runnable {
     public static final boolean USE_DEFAULT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME");

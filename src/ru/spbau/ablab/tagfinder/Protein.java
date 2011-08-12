@@ -2,8 +2,8 @@ package ru.spbau.ablab.tagfinder;
 
 import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_LET;
 import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_MONO_MASS;
-import ru.spbau.ablab.tagfinder.path.AAEdge;
-import ru.spbau.ablab.tagfinder.path.Edge;
+import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
+import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 

@@ -5,6 +5,7 @@ import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 import java.io.File;
 import java.io.FileNotFoundException;

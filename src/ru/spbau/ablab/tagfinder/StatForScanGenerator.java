@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.StringTokenizer;
 
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.FastScanner;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 public class StatForScanGenerator {
     public static void main(String[] args) throws FileNotFoundException {

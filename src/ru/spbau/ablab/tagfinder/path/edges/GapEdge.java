@@ -1,4 +1,4 @@
-package ru.spbau.ablab.tagfinder.path;
+package ru.spbau.ablab.tagfinder.path.edges;
 
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 import ru.spbau.ablab.tagfinder.util.StringUtil;

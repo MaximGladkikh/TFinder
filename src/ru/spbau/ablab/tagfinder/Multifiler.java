@@ -6,10 +6,10 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 
-import ru.spbau.ablab.tagfinder.util.ComparablePair;
+import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
-import ru.spbau.ablab.tagfinder.util.FastScanner;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 public class Multifiler {
 	public static void main(String[] args) throws FileNotFoundException {

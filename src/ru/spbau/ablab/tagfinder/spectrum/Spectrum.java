@@ -1,7 +1,7 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.FastScanner;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 import java.io.File;

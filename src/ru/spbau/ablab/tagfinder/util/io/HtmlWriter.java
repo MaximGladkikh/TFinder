@@ -1,4 +1,6 @@
-package ru.spbau.ablab.tagfinder.util;
+package ru.spbau.ablab.tagfinder.util.io;
+
+import ru.spbau.ablab.tagfinder.util.StringUtil;
 
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;

@@ -1,4 +1,4 @@
-package ru.spbau.ablab.tagfinder.util;
+package ru.spbau.ablab.tagfinder.util.io;
 
 import java.io.*;
 import java.util.StringTokenizer;
