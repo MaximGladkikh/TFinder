@@ -1,8 +1,8 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -21,11 +21,14 @@ public class Spectrum {
     public Spectrum(int id, File file) throws FileNotFoundException {
         this.id = id;
         FastScanner scanner = new FastScanner(file);
-        Envelope[] envelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER")];
+        Envelope[] envelopes = new Envelope[scanner.getNextIntValue("ENVELOPE_NUMBER") + 2];
         this.parentMass = scanner.getNextDoubleValue("MONOISOTOPIC_MASS");
-        for (int i = 0; i < envelopes.length; ++i) {
+        for (int i = 0; i < envelopes.length - 2; ++i) {
             envelopes[i] = readEnvelope(scanner);
         }
+        double infinity = 1e200;
+        envelopes[envelopes.length - 2] = new Envelope(0, infinity, infinity);
+        envelopes[envelopes.length - 1] = new Envelope(parentMass, infinity, infinity);
         Arrays.sort(envelopes);
         this.envelopes = unique(envelopes);
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
@@ -73,8 +76,7 @@ public class Spectrum {
             while (index >= 0 && Math.abs(Math.abs(envelopes[index].getMass(massCorrection) - firstMass) - edgeMass) < massEps) {
                 --index;
             }
-            ++index;
-            return index;
+            return index + 1;
         }
         return getFirstMatchingCorrectedEnvelopeIndex(firstMass, needMass, edgeMass, massCorrection);
     }
@@ -84,12 +86,13 @@ public class Spectrum {
     }
 
     private int getFirstMatchingCorrectedEnvelopeIndex(double firstMass, double needMass, double edgeMass, double delta) {
+        assert Math.abs(firstMass + edgeMass - needMass) < 1e-12;
         int index = getClosestIndex(needMass);
-        while (index >= 0 && MassComparator.edgeMatches(firstMass, envelopes[index].getMass() + delta, edgeMass)) {
+        while (index >= 0 && MassComparator.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
             --index;
         }
         ++index;
-        if (index >= envelopes.length || !MassComparator.edgeMatches(firstMass, envelopes[index].getMass() + delta, edgeMass)) {
+        if (index >= envelopes.length || !MassComparator.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
             return envelopes.length;
         }
         return index;
@@ -105,7 +108,7 @@ public class Spectrum {
         int closest = r;
         while (l <= r) {
             int med = (l + r) / 2;
-            if (envelopes[med].getMass(null) >= mass) {
+            if (envelopes[med].getMass() >= mass) {
                 closest = med;
                 r = med - 1;
             } else {

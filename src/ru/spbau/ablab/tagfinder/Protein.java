@@ -1,11 +1,12 @@
 package ru.spbau.ablab.tagfinder;
 
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_LET;
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.AA_MONO_MASS;
+import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
-import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
+
+import static ru.spbau.ablab.tagfinder.TagGenerator.AA_LET;
+import static ru.spbau.ablab.tagfinder.TagGenerator.AA_MONO_MASS;
 
 public class Protein {
 	public static final double[] AA_MASS_ARRAY = new double[256];
@@ -17,7 +18,7 @@ public class Protein {
 
 	private String protein;
 	private String revProtein;
-	private double[] masses;
+	double[] masses;
 
 	public Protein(String s) {
 		protein = s;
@@ -35,7 +36,7 @@ public class Protein {
 
 	public boolean contains(Path path) {
 		boolean ans = getMaxMatch(path) == path.length();
-		assert StatisticsGenerator.EDGE_OF_TWO_AA || ans == (protein.contains(path.toString()) || revProtein.contains(path.toString()));
+		assert TagGenerator.EDGE_OF_TWO_AA || ans == (protein.contains(path.toString()) || revProtein.contains(path.toString()));
 		return ans;
 	}
 

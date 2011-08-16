@@ -1,10 +1,11 @@
 package ru.spbau.ablab.tagfinder.path;
 
-import java.util.Comparator;
-
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
+import ru.spbau.ablab.tagfinder.TagGenerator;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
+
+import java.util.Comparator;
 
 public class Path implements Comparable<Path> {
 	public static final double SCORE_EPS = 1e-5;
@@ -97,7 +98,7 @@ public class Path implements Comparable<Path> {
         return new Path(this, this.score + Math.log(score), edge);
 	}
 
-    private static final Edge[] edgesBuffer = new Edge[StatisticsGenerator.MAX_TAG_LENGTH];
+    private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH];
 
     public Edge[] getEdges() {
         Path path = this;

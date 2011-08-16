@@ -6,7 +6,8 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
 import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_PATHS;
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_TAG_LENGTH;
+import static ru.spbau.ablab.tagfinder.TagGenerator.MAX_TAG_LENGTH;
+import static ru.spbau.ablab.tagfinder.TagGenerator.MIN_TAG_LENGTH;
 
 public class HtmlWriter extends PrintWriter {
     private final String name;
@@ -23,17 +24,24 @@ public class HtmlWriter extends PrintWriter {
     }
 
     public void printHeader() {
+        printOpenTag("tr");
         printThTaggedValue("scan id");
         printThTaggedValue("#peaks");
-        printThTaggedValue("#tags");
+        printOpenTh();
+        printTaggedValue("div", "%peaks");
+        printTaggedValue("div", "used");
+        printCloseTh();
         printOpenTh();
         printTaggedValue("div", "#proteins");
-        println(" matched set");
+        printTaggedValue("div", "matched");
+        printTaggedValue("div", "set");
         printCloseTh();
         printThTaggedValue("E-value");
         for (int i = 1; i <= MAX_PATHS; ++i) {
             printThTaggedValue("tag# " + i);
         }
+        printThTaggedValue("matched protein");
+        printCloseTag("tr");
     }
 
     public void close() {
@@ -63,7 +71,7 @@ public class HtmlWriter extends PrintWriter {
     }
 
     public void printFrequences(int[][] count) {
-        for (int len = MAX_TAG_LENGTH; len >= 0; --len) {
+        for (int len = MAX_TAG_LENGTH; len >= MIN_TAG_LENGTH; --len) {
             printOpenTag("tr");
             printThTaggedValue("length");
             printThTaggedValue("");

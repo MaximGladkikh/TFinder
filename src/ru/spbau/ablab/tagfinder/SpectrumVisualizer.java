@@ -1,29 +1,15 @@
 package ru.spbau.ablab.tagfinder;
 
-import java.awt.Canvas;
-import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
-import java.io.File;
-import java.io.FileNotFoundException;
-
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
-import javax.swing.KeyStroke;
-
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.io.File;
+import java.io.FileNotFoundException;
 
 public class SpectrumVisualizer extends JFrame {
     private static final String envFile = Database.SPECTRUM_FILE_SUFFIX.substring(1);

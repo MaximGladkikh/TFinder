@@ -21,21 +21,39 @@ public class Database {
     private static final String ALIGN_RESULT_FILE = ConfigReader.getProperty("ALIGN_RESULT_FILE");
     private static final String ALIGN_SPECTRA_FILE = ConfigReader.getProperty("ALIGN_SPECTRA_FILE");
 
-    private static Database database;
     private String[][] matchesData;
     private Map<Integer, Integer> scanToRow;
     private Map<Integer, Spectrum> scanToSpectrum;
     private Map<String, Protein> proteinDB;
     private Map<Integer, Double> idToEValue;
+    private Map<Integer, Spectrum> scanToVirtualSpectrum;
 
-    private Database() throws FileNotFoundException {
+    public Database(boolean skip) throws FileNotFoundException {
         proteinDB = getProteinDB();
         matchesData = getMatches();
-        scanToSpectrum = getExperimentalSpectra();
-        Map<Integer, Spectrum> scanToVirtualSpectrum = getVirtualSpectra();
+        scanToSpectrum = getExperimentalSpectra(skip);
+        scanToVirtualSpectrum = getVirtualSpectra();
         if (ConfigReader.getBooleanProperty("ALIGN")) {
             scanToSpectrum = scanToVirtualSpectrum;
         }
+    }
+
+    public Spectrum getVirtualSpectrum(int id) {
+        return scanToVirtualSpectrum.get(id);
+    }
+
+    public void setSpectrum(int id, Spectrum spectrum) {
+        scanToSpectrum.put(id, spectrum);
+    }
+
+    public ArrayList<Integer> getUnmatchedIds() {
+        ArrayList<Integer> ans = new ArrayList<Integer>();
+        for (int id : scanToSpectrum.keySet()) {
+            if (!scanToRow.containsKey(id)) {
+                ans.add(id);
+            }
+        }
+        return ans;
     }
 
     public Protein getProtein(int id) {
@@ -46,10 +64,11 @@ public class Database {
     }
 
     public double getEValue(int id) {
-        return idToEValue.get(id);
+        Double d;
+        return (d = idToEValue.get(id)) == null ? 0 : d;
     }
 
-    private String getProteinName(int id) {
+    public String getProteinName(int id) {
         return matchesData[scanToRow.get(id)][6];
     }
 
@@ -73,7 +92,7 @@ public class Database {
         return ans;
     }
 
-    private TreeMap<Integer, Spectrum> getExperimentalSpectra() throws FileNotFoundException {
+    private TreeMap<Integer, Spectrum> getExperimentalSpectra(boolean skipUnmatched) throws FileNotFoundException {
         TreeMap<Integer, Spectrum> ans = new TreeMap<Integer, Spectrum>();
         File envDir = new File(ENVELOPES_DIR);
         for (File file : envDir.listFiles()) {
@@ -84,7 +103,10 @@ public class Database {
             String stringId = name.substring(SPECTRUM_FILE_PREFIX.length(), name.length() - SPECTRUM_FILE_SUFFIX.length());
             int id = Integer.parseInt(stringId);
             Integer rowId = scanToRow.get(id);
-            if (rowId == null) {
+            if (skipUnmatched && rowId == null) {
+                continue;
+            }
+            if (!skipUnmatched && rowId != null) {
                 continue;
             }
             Spectrum spectrum = new Spectrum(id, file);
@@ -93,12 +115,27 @@ public class Database {
         return ans;
     }
 
-    public int getMatchedProteinsNumber(TreeSet<Path> paths) {
+    private HashSet<String> lastMatchedProteins;
+
+    public String getLastMatchedProtein() {
+        return lastMatchedProteins.isEmpty() ? null : lastMatchedProteins.iterator().next();
+    }
+
+    public Set<String> getLastMatchedProteins() {
+        return lastMatchedProteins;
+    }
+
+    public int getMatchedProteinsNumber(Collection<Path> paths) {
         int pathN = 0;
+        lastMatchedProteins = new HashSet<String>();
         HashSet<String> matchedProteins = new HashSet<String>();
         for (Path path : paths) {
+            if (path == null) {
+                continue;
+            }
             for (Map.Entry<String, Protein> entry : proteinDB.entrySet()) {
                 if (entry.getValue().contains(path)) {
+                    lastMatchedProteins.add(entry.getKey());
                     matchedProteins.add(entry.getKey());
                 }
             }
@@ -186,24 +223,23 @@ public class Database {
     private HashMap<String, Protein> getProteinDB() throws FileNotFoundException {
         FastScanner scanner = new FastScanner(new File(PROTEIN_DB_PATH));
         HashMap<String, Protein> ans = new HashMap<String, Protein>();
-        String peptideName = null;
+        String proteinName = null;
         StringBuilder protein = null;
         for (String line; (line = scanner.nextLine()) != null; ) {
             if (line.charAt(0) == '>') {
-                if (peptideName != null) {
-                    ans.put(peptideName, new Protein(protein.toString().trim().replace('I', 'L')));
+                if (proteinName != null) {
+                    ans.put(proteinName, new Protein(protein.toString().trim().replace('I', 'L')));
                 }
-                peptideName = line.substring(1);
+                proteinName = line.substring(1);
                 protein = new StringBuilder();
             } else {
                 assert protein != null;
                 protein.append(line);
             }
         }
+        if (proteinName != null) {
+            ans.put(proteinName, new Protein(protein.toString().trim().replace('I', 'L')));
+        }
         return ans;
-    }
-
-    public static Database getDatabase() throws FileNotFoundException {
-        return database == null ? (database = new Database()) : database;
     }
 }
