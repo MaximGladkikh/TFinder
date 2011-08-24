@@ -4,7 +4,9 @@ import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.StringTokenizer;
 
 
 public class ConfigReader {
@@ -44,6 +46,16 @@ public class ConfigReader {
 	public static long getLongProperty(String key) {
 		return Long.parseLong(getProperty(key));
 	}
+
+    public static ArrayList<Integer> getIntListProperty(String key) {
+        String s = getProperty(key);
+        StringTokenizer tokenizer = new StringTokenizer(s);
+        ArrayList<Integer> integers = new ArrayList<Integer>();
+        while (tokenizer.hasMoreTokens()) {
+            integers.add(Integer.parseInt(tokenizer.nextToken()));
+        }
+        return integers;
+    }
 
 	public static String getProperty(String key) {
 		String s = PROPERTY_MAP.get(key);

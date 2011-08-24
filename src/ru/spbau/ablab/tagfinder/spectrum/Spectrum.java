@@ -105,21 +105,21 @@ public class Spectrum {
     public int getClosestIndex(double mass) {
         int l = 0;
         int r = envelopes.length - 1;
-        int closest = r;
+        int ans = r;
         while (l <= r) {
             int med = (l + r) / 2;
             if (envelopes[med].getMass() >= mass) {
-                closest = med;
+                ans = med;
                 r = med - 1;
             } else {
                 l = med + 1;
             }
         }
-        if (closest == 0 && envelopes.length > 1 && Math.abs(envelopes[0].getMass() - mass) > Math.abs(envelopes[1].getMass() - mass)) {
-            closest = 1;
-        } else if (closest > 0 && Math.abs(envelopes[closest - 1].getMass() - mass) < Math.abs(envelopes[closest].getMass() - mass)) {
-            --closest;
+        if (ans + 1 < envelopes.length && Math.abs(envelopes[ans].getMass() - mass) > Math.abs(envelopes[ans + 1].getMass() - mass)) {
+            ans = 1;
+        } else if (ans > 0 && Math.abs(envelopes[ans - 1].getMass() - mass) < Math.abs(envelopes[ans].getMass() - mass)) {
+            --ans;
         }
-        return closest;
+        return ans;
     }
 }

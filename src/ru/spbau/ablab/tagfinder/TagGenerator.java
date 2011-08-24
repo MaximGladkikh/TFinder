@@ -10,21 +10,20 @@ import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
+import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
+import sun.plugin.javascript.navig.Array;
 
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 public class TagGenerator {
-    public static final boolean DOUBLE_MASSES = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
-    public static final int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
-    public static final int MIN_TAG_LENGTH = ConfigReader.getIntProperty("MIN_TAG_LENGTH");
+    public static boolean DOUBLE_MASSES = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
+    private static boolean doubleMasses = DOUBLE_MASSES;
+    public static int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
+    public static int MIN_TAG_LENGTH = ConfigReader.getIntProperty("MIN_TAG_LENGTH");
     public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBooleanProperty("EDGE_OF_TWO_AA");
 
     public static final char[] AA_LET;
     public static final double[] AA_MONO_MASS;
-    public static final double[] AA_AVG_MASS;
 
     private static final AAEdge[] AA_EDGES;
     private static final GapEdge[][] GAP_EDGES;
@@ -32,14 +31,21 @@ public class TagGenerator {
     private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
 
     static {
-        AA_LET = new char[19];
-        AA_MONO_MASS = new double[AA_LET.length];
-        AA_AVG_MASS = new double[AA_LET.length];
+        @SuppressWarnings("unchecked")
+        ComparablePair<Double, Character>[] acids = new ComparablePair[19];
         FastScanner scanner = new FastScanner(MASS_LIST);
-        for (int i = 0; i < AA_LET.length; ++i) {
-            AA_LET[i] = scanner.nextToken().charAt(0);
-            AA_MONO_MASS[i] = scanner.nextDouble();
-            AA_AVG_MASS[i] = scanner.nextDouble();
+        for (int i = 0; i < acids.length; ++i) {
+            char c =scanner.nextToken().charAt(0);
+            double mass = scanner.nextDouble();
+            scanner.nextDouble();
+            acids[i] = new ComparablePair<Double, Character>(mass, c);
+        }
+        Arrays.sort(acids);
+        AA_LET = new char[acids.length];
+        AA_MONO_MASS = new double[AA_LET.length];
+        for (int i = 0; i < acids.length; ++i) {
+            AA_LET[i] = acids[i].b;
+            AA_MONO_MASS[i] = acids[i].a;
         }
         AA_EDGES = new AAEdge[AA_LET.length];
         GAP_EDGES = new GapEdge[AA_LET.length][AA_LET.length];
@@ -67,27 +73,40 @@ public class TagGenerator {
         return lastRatio;
     }
 
+    public static void setDoubleMasses(boolean b) {
+        doubleMasses = b;
+    }
+
     public static ArrayList<Path> getTopTags(Database database, int id, int n) {
         ArrayList<Path> ans = new ArrayList<Path>();
         for (int i = 0; i < RATIO_THRESHOLDS.length && ans.size() < n; ++i) {
-            Set<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[i]);
-            lastRatio = RATIO_THRESHOLDS[i];
-            int pathN = 0;
-            paths:
-            for (Path path : paths) {
-                if (ans.size() >= n || pathN >= StatisticsGenerator.MAX_PATHS) {
-                    break;
-                }
-                ++pathN;
-                for (Path stored : ans) {
-                    if (stored.toString().equals(path.toString())) {
-                        continue paths;
-                    }
-                }
-                ans.add(path);
+            fillTopTags(database, id, n, ans, i, false);
+            if (DOUBLE_MASSES && ans.size() < n) {
+                fillTopTags(database, id, n, ans, i, true);
             }
         }
         return ans;
+    }
+
+    private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int i, boolean doubleMasses) {
+        setDoubleMasses(doubleMasses);
+        Set<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[i]);
+        lastRatio = RATIO_THRESHOLDS[i];
+        int pathN = 0;
+        paths:
+        for (Path path : paths) {
+            if (ans.size() >= n || pathN >= StatisticsGenerator.MAX_PATHS) {
+                break;
+            }
+            ++pathN;
+            for (Path stored : ans) {
+                if (stored.toString().equals(path.toString())) {
+                    continue paths;
+                }
+            }
+            ans.add(path);
+        }
+        setDoubleMasses(DOUBLE_MASSES);
     }
 
     public static TreeSet<Path> getAllPaths(Database database, int id) {
@@ -112,7 +131,7 @@ public class TagGenerator {
                 continue;
             }
             ArrayList<Double> list = new ArrayList<Double>();
-            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score), bestScore, list, null, usedEnvelopes, minScore);
+            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score, envelopes[i].getMass(), spectrum), bestScore, list, null, usedEnvelopes, minScore);
         }
         return new TreeSet<Path>(bestScore.keySet());
     }
@@ -176,7 +195,7 @@ public class TagGenerator {
             Path newPath = path.append(edge, nextEnvelope.score);
             addTags(spectrum, reversedSpectrum, next, newPath, bestScore, peaks, parentMassCorrection, usedEnvelopes, minScore);
         }
-        if (DOUBLE_MASSES) {
+        if (doubleMasses) {
             for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), parentMassCorrection); next < reversedSpectrum.envelopes.length && MassComparator.edgeMatches(currentMass, reversedSpectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection); ++next) {
                 Envelope nextEnvelope = reversedSpectrum.envelopes[next];
                 if (usedEnvelopes[spectrum.envelopes.length - 1 - next] || nextEnvelope.score < minScore) {

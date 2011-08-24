@@ -40,6 +40,11 @@ public class HtmlWriter extends PrintWriter {
         for (int i = 1; i <= MAX_PATHS; ++i) {
             printThTaggedValue("tag# " + i);
         }
+        printOpenTh();
+        printTaggedValue("div", "predicted");
+        printTaggedValue("div", "protein");
+        printTaggedValue("div", "matches set");
+        printCloseTh();
         printThTaggedValue("matched protein");
         printCloseTag("tr");
     }
@@ -56,21 +61,28 @@ public class HtmlWriter extends PrintWriter {
         printCloseTag("head");
     }
 
-    public void printRatio(int[] found, int scansProcessed) {
+    public void printRatio(int[] found, int scansProcessed, int predictedProteinFoundNumber, int matchedMsAlignNumber) {
         printOpenTag("tr");
         printThTaggedValue("% red");
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 3; ++i) {
             printEmptyTag("th");
         }
+        double sum = 0;
+        for (int i = 0; i < MAX_PATHS; ++i) {
+            sum += 1. * found[i] / scansProcessed;
+        }
+        printThTaggedValue(String.format("%.2f", sum));
         for (int i = 0; i < MAX_PATHS; ++i) {
             printOpenTag("td");
             printTaggedValue("div", StringUtil.toStringPrecision(1. * found[i] / scansProcessed, 5), "align=center");
             printCloseTag("td");
         }
+        printThTaggedValue(String.format("%.2f", predictedProteinFoundNumber * 1. / scansProcessed));
+        printThTaggedValue(String.format("%.2f", matchedMsAlignNumber * 1. / scansProcessed));
         printCloseTag("tr");
     }
 
-    public void printFrequences(int[][] count) {
+    public void printFrequencies(int[][] count) {
         for (int len = MAX_TAG_LENGTH; len >= MIN_TAG_LENGTH; --len) {
             printOpenTag("tr");
             printThTaggedValue("length");

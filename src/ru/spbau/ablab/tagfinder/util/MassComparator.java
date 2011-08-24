@@ -42,4 +42,8 @@ public class MassComparator implements Comparator<Double> {
         }
         return difference <= ERROR_THRESHOLD * (m1 + m2);
     }
+
+    public static boolean sameForDeletion(double mass, double offset) {
+        return Math.abs(mass - offset) < 1e-1;
+    }
 }

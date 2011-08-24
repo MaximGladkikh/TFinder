@@ -4,6 +4,7 @@ import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.TagGenerator;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
+import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 
 import java.util.Comparator;
 
@@ -18,8 +19,14 @@ public class Path implements Comparable<Path> {
     public final int edges;
     private final int length;
     private final Path parent;
+    public final double beginMass;
+    public final Spectrum spectrum;
 
-    public Path(Path parent, double score, Edge edge) {
+    public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
+        this.spectrum = spectrum;
+        if (beginMass < 0) {
+            throw new AssertionError("bm = " + beginMass);
+        }
         this.score = score;
         this.edge = edge;
         if (parent != null && parent.edge == null) {
@@ -28,25 +35,40 @@ public class Path implements Comparable<Path> {
         length = (parent == null ? 0 : parent.length()) + (edge instanceof AAEdge ? 1 : GAP_LENGTH_IN_AACOUNT) ;
         edges = 1 + (parent == null ? 0 : parent.edges);
         this.parent = parent;
+        this.beginMass = beginMass;
     }
 
-    private Path(Edge[] edges, int pos, double score) {
-        this(pos <= 0 ? null : new Path(edges, pos - 1, score), score, pos >= 0 ? edges[pos] : null);
+    private Path(Edge[] edges, int pos, double score, double beginMass, Spectrum spectrum) {
+        this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum);
     }
 
-	public Path(Edge[] edges) {
-        this(edges, 0);
+	public Path(Edge[] edges, double beginMass, Spectrum spectrum) {
+        this(edges, 0, beginMass, spectrum);
 	}
 
-	public Path(Edge[] edges, double score) {
-        this(edges, edges.length - 1, score);
+	public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum) {
+        this(edges, edges.length - 1, score, beginMass, spectrum);
 	}
 
 	public int length() {
 		return length;
 	}
-	
-	private static final class LengthFirstComparator implements Comparator<Path>{
+
+    public Path getReversed() {
+        return new Path(getReversedEdges(), score, Double.NaN, spectrum);
+    }
+
+    public double getMass() {
+        double mass = 0;
+        Path path = this;
+        while (path != null && path.edge != null) {
+            mass += path.edge.getMass();
+            path = path.parent;
+        }
+        return mass;
+    }
+
+    private static final class LengthFirstComparator implements Comparator<Path>{
 		@Override
 		public int compare(Path o1, Path o2) {
 			int lengths = o1.compareLengths(o2);
@@ -95,27 +117,38 @@ public class Path implements Comparable<Path> {
 	}
 
 	public Path append(Edge edge, double score) {
-        return new Path(this, this.score + Math.log(score), edge);
+        return new Path(this, this.score + Math.log(score), edge, beginMass, spectrum);
 	}
 
     private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH];
 
     public Edge[] getEdges() {
-        Path path = this;
-        int i = 0;
-        while (path != null) {
-            edgesBuffer[i++] = path.edge;
-            path = path.parent;
-        }
-        Edge[] ans = new Edge[i];
-        for (int j = 0; j < i; ++j) {
-            ans[j] = edgesBuffer[i - j - 1];
+        int size = putPath();
+        Edge[] ans = new Edge[size];
+        for (int i = 0; i < size; ++i) {
+            ans[i] = edgesBuffer[size - i - 1];
         }
         return ans;
     }
 
+    public Edge[] getReversedEdges() {
+        int size = putPath();
+        Edge[] ans = new Edge[size];
+        System.arraycopy(edgesBuffer, 0, ans, 0, size);
+        return ans;
+    }
 
-	@Override
+    private int putPath() {
+        Path path = this;
+        int size = 0;
+        while (path != null && path.edge != null) {
+            edgesBuffer[size++] = path.edge;
+            path = path.parent;
+        }
+        return size;
+    }
+
+    @Override
 	public String toString() {
         StringBuilder builder = new StringBuilder();
 		for (Edge edge : getEdges()) {
@@ -131,6 +164,6 @@ public class Path implements Comparable<Path> {
         Edge[] currentEdges = getEdges();
 		Edge[] edges = new Edge[end - start];
         System.arraycopy(currentEdges, start, edges, 0, end - start);
-		return new Path(edges);
+		return new Path(edges, Double.NaN, spectrum);
 	}
 }
