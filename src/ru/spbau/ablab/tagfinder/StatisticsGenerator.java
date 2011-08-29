@@ -4,7 +4,6 @@ import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
-import ru.spbau.ablab.tagfinder.util.StringUtil;
 import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 
 import java.io.FileNotFoundException;
@@ -29,7 +28,7 @@ public class StatisticsGenerator implements Runnable {
     public void run() {
         ScanProcessor processor = new MatchedScanProcessor();
         try {
-            database = new Database();
+            database = Database.getInstance();
             ArrayList<Integer> scanIds = database.filter(true);
             HtmlWriter writer = new HtmlWriter(USE_DEFAULT_FILENAME ? OUTPUT_FILE : getOutputFilename());
             printStatistics(writer, scanIds, processor);
@@ -42,23 +41,31 @@ public class StatisticsGenerator implements Runnable {
     }
 
     protected void printStatistics(HtmlWriter writer, ArrayList<Integer> scanIds, ScanProcessor processor) {
+        long startTime = System.currentTimeMillis();
         writer.printOpenTag("table", "cellpadding=0 cellspacing=20");
         writer.printHeader();
         int[] found = new int[MAX_PATHS];
-        int[][] count = new int[MAX_PATHS][TagGenerator.MAX_TAG_LENGTH + 1];
+        int[][] count = new int[MAX_PATHS][TagGenerator.MAX_TAG_LENGTH * 2];
+        int[] nTags = new int[MAX_PATHS];
+        int[] monoTags = new int[MAX_PATHS];
         for (int id : scanIds) {
-            processor.processScan(id, writer, count, found);
+            processor.processScan(id, writer, count, found, nTags, monoTags);
         }
         writer.printFrequencies(count);
+        writer.printMonoTags(nTags, monoTags);
         writer.printRatio(found, processor.getProcessedScansNumber(), processor.getPredictedProteinFoundNumber(), processor.getMatchedMsAlignNumber());
         writer.printCloseTag("table");
         System.out.println(processor.getMatchedMsAlignNumber() + " proteins matched MS-ALIGN+");
+        System.out.printf("Statistics generated in %.3fms\n", 1e-3 * (System.currentTimeMillis() - startTime));
     }
 
     protected interface ScanProcessor {
-        boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found);
+        boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags);
+
         int getMatchedMsAlignNumber();
+
         int getPredictedProteinFoundNumber();
+
         int getProcessedScansNumber();
     }
 
@@ -82,12 +89,13 @@ public class StatisticsGenerator implements Runnable {
             this(false);
         }
 
-        public boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found) {
+        public boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags) {
             List<Path> paths = TagGenerator.getTopTags(database, id, MAX_PATHS);
             if (skip && paths.isEmpty()) {
                 return false;
             }
             ++processed;
+            database.getBestFromAlign(id, paths);
             writer.printOpenTag("tr");
             writer.printThTaggedValue(id);
             writer.printThTaggedValue(database.getSpectrum(id).envelopes.length);
@@ -99,8 +107,8 @@ public class StatisticsGenerator implements Runnable {
             } else {
                 printProteinDBMatches(writer, paths);
             }
-            writer.printThTaggedValue(StringUtil.toStringScientific(database.getEValue(id), 2));
-            printTags(writer, count, found, protein, paths);
+            writer.printThTaggedValue(String.format("%.2E", database.getEValue(id)));
+            printTags(writer, count, found, nTags, monoTags, protein, paths);
             printMatchedProteinsStats(writer, id);
             writer.printCloseTag("tr");
             writer.flush();
@@ -123,12 +131,16 @@ public class StatisticsGenerator implements Runnable {
             return processed;
         }
 
-        protected void printTags(HtmlWriter writer, int[][] count, int[] found, Protein protein, Collection<Path> paths) {
+        protected void printTags(HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags, Protein protein, Collection<Path> paths) {
             int pathN = 0;
             boolean foundFirst = false;
             for (Path path : paths) {
                 if (pathN == MAX_PATHS) {
                     break;
+                }
+                ++nTags[pathN];
+                if (path.isMonoTag()) {
+                    ++monoTags[pathN];
                 }
                 writer.printOpenTag("td");
                 writer.printOpenTag("div", "align=center");
@@ -192,7 +204,8 @@ public class StatisticsGenerator implements Runnable {
                 ++matchedAlign;
             }
             writer.printOpenTag("td");
-            writer.printTaggedValue("div", database.getProteinName(id), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
+            writer.printTaggedValue("div", database.getProteinShortName(id), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
+            writer.printTaggedValue("div", database.getProteinFromTable(id).getShortName());
             writer.printCloseTag("td");
         }
     }

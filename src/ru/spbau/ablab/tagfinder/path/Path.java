@@ -5,6 +5,7 @@ import ru.spbau.ablab.tagfinder.TagGenerator;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
+import ru.spbau.ablab.tagfinder.util.Database;
 
 import java.util.Comparator;
 
@@ -21,10 +22,13 @@ public class Path implements Comparable<Path> {
     private final Path parent;
     public final double beginMass;
     public final Spectrum spectrum;
+    private Boolean monoTag = null;
+    private final boolean reversed;
 
-    public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
+    public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum, boolean reversed) {
+        this.reversed = reversed;
         this.spectrum = spectrum;
-        if (beginMass < 0) {
+        if (beginMass < -3) {
             throw new AssertionError("bm = " + beginMass);
         }
         this.score = score;
@@ -38,16 +42,20 @@ public class Path implements Comparable<Path> {
         this.beginMass = beginMass;
     }
 
-    private Path(Edge[] edges, int pos, double score, double beginMass, Spectrum spectrum) {
-        this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum);
+    public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
+        this(parent, score, edge, beginMass, spectrum, false);
     }
 
-	public Path(Edge[] edges, double beginMass, Spectrum spectrum) {
-        this(edges, 0, beginMass, spectrum);
+    private Path(Edge[] edges, int pos, double score, double beginMass, Spectrum spectrum, boolean reversed) {
+        this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum, reversed), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum, reversed);
+    }
+
+	public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
+        this(edges, 0, beginMass, spectrum, reversed);
 	}
 
-	public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum) {
-        this(edges, edges.length - 1, score, beginMass, spectrum);
+	public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum, boolean reversed) {
+        this(edges, edges.length - 1, score, beginMass, spectrum, reversed);
 	}
 
 	public int length() {
@@ -55,7 +63,7 @@ public class Path implements Comparable<Path> {
 	}
 
     public Path getReversed() {
-        return new Path(getReversedEdges(), score, Double.NaN, spectrum);
+        return new Path(getReversedEdges(), score, spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, spectrum, !reversed);
     }
 
     public double getMass() {
@@ -66,6 +74,27 @@ public class Path implements Comparable<Path> {
             path = path.parent;
         }
         return mass;
+    }
+
+    public boolean isMonoTag() {
+        if (monoTag != null) {
+            return monoTag;
+        }
+        Edge[] edges = getEdges();
+        return monoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass + Database.WATER_MASS, edges, -1.);
+    }
+
+    private boolean spectrumHasPeaks(double mass, Edge[] edges, double d) {
+        boolean matched = spectrum.hasPeak(mass);
+        for (Edge edge : edges) {
+            mass += edge.getMass() * d;
+            matched &= spectrum.hasPeak(mass);
+        }
+        return matched;
+    }
+
+    public boolean isReversed() {
+        return reversed;
     }
 
     private static final class LengthFirstComparator implements Comparator<Path>{
@@ -120,7 +149,7 @@ public class Path implements Comparable<Path> {
         return new Path(this, this.score + Math.log(score), edge, beginMass, spectrum);
 	}
 
-    private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH];
+    private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH * 2];
 
     public Edge[] getEdges() {
         int size = putPath();
@@ -164,6 +193,6 @@ public class Path implements Comparable<Path> {
         Edge[] currentEdges = getEdges();
 		Edge[] edges = new Edge[end - start];
         System.arraycopy(currentEdges, start, edges, 0, end - start);
-		return new Path(edges, Double.NaN, spectrum);
+		return new Path(edges, Double.NaN, spectrum, reversed);
 	}
 }

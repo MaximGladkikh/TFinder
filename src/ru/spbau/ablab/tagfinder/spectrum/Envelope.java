@@ -1,5 +1,6 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
+import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 public class Envelope implements Comparable<Envelope> {
@@ -29,7 +30,7 @@ public class Envelope implements Comparable<Envelope> {
     }
 
     public Envelope getReversed(double parentMass) {
-        return new Envelope(parentMass - mass, score, intensity, true);
+        return new Envelope(parentMass - mass + Database.WATER_MASS, score, intensity, true);
     }
 
     @Override

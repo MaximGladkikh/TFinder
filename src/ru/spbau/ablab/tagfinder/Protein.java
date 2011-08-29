@@ -5,10 +5,7 @@ import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
-import ru.spbau.ablab.tagfinder.util.ArrayUtil;
-import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.MassComparator;
-import ru.spbau.ablab.tagfinder.util.StringUtil;
+import ru.spbau.ablab.tagfinder.util.*;
 
 import java.util.Arrays;
 
@@ -23,6 +20,7 @@ public class Protein {
 		}
 	}
 
+    private final String shortName;
     private final String name;
 	private final String protein;
 	private final String revProtein;
@@ -38,6 +36,8 @@ public class Protein {
         parentMass = masses[masses.length - 1];
         this.name = name;
 		revProtein = new StringBuilder(s).reverse().toString();
+        String subName = name.substring(name.indexOf("NP_"));
+        shortName = subName.substring(0, subName.indexOf('|'));
 	}
 
     public String getString() {
@@ -48,19 +48,24 @@ public class Protein {
         return name;
     }
 
+    public String getShortName() {
+        return shortName;
+    }
+
     @Override
     public int hashCode() {
         return hashCode == null ? hashCode = (int)StringUtil.getHash(name) : hashCode;
     }
 
     private double[] getMasses(String s) {
-		double[] ans = new double[s.length() * 2 + 1];
+		double[] ans = new double[s.length() * 2 + 2];
 		for (int i = 0; i < s.length(); ++i) {
 			ans[i + 1] = ans[i] + AA_MASS_ARRAY[s.charAt(i)];
 		}
-        double sum = 0;
+        double sum = Database.WATER_MASS;
+        ans[s.length() + 1] = sum;
         for (int i = 0; i < s.length(); ++i) {
-            ans[s.length() + 1 + i] = sum += AA_MASS_ARRAY[s.charAt(s.length() - 1 - i)];
+            ans[s.length() + 2 + i] = sum += AA_MASS_ARRAY[s.charAt(s.length() - 1 - i)];
         }
         Arrays.sort(ans);
 		return ans;
@@ -74,11 +79,12 @@ public class Protein {
 
 	public int getMaxMatch(Path path) {
         bestAbs = Double.POSITIVE_INFINITY;
-		return Math.max(getMaxMatch(path.getEdges(), masses, path.beginMass, path.length()), getMaxMatch(path.getReversedEdges(), masses, path.spectrum.parentMass - path.beginMass - path.getMass(), path.length()));
+		return Math.max(getMaxMatch(path.getEdges(), masses, path.beginMass, path.length()), getMaxMatch(path.getReversedEdges(), masses, path.spectrum.parentMass - path.beginMass - path.getMass() + Database.WATER_MASS, path.length()));
 	}
 
 	private int getMaxMatch(Edge[] edges, double[] masses, double beginMass, int length) {
 		int maxScore = 0;
+//        System.err.println("enter " + Arrays.toString(edges));
 		for (int i = 0; i < masses.length - 1; ++i) {
             double abs = Math.abs(beginMass - masses[i]);
             if (abs > MAX_ACCEPTED_DISTANCE) {
@@ -95,7 +101,6 @@ public class Protein {
 					++pos;
 					matchedEdges += add;
 				} else {
-                    System.err.println(edges[j]);
 					double needMass = masses[pos] + edges[j].getMass();
 					int nextInd = masses.length - 1;
 					int add = 0;
@@ -140,6 +145,7 @@ public class Protein {
                 bestAbs = Math.min(bestAbs, abs);
             }
 		}
+//        System.err.println("leave " + Arrays.toString(edges));
 		return maxScore;
 	}
 

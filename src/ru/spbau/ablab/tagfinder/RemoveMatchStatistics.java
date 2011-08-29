@@ -21,7 +21,7 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
 
     public void run() {
         try {
-            database = new Database();
+            database = Database.getInstance();
             ArrayList<Integer> ids = database.filter(false);
             HtmlWriter writer = new HtmlWriter("removedpeaks.html");
             int count = 0;

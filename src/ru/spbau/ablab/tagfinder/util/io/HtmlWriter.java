@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
 import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_PATHS;
-import static ru.spbau.ablab.tagfinder.TagGenerator.MAX_TAG_LENGTH;
 import static ru.spbau.ablab.tagfinder.TagGenerator.MIN_TAG_LENGTH;
 
 public class HtmlWriter extends PrintWriter {
@@ -83,7 +82,20 @@ public class HtmlWriter extends PrintWriter {
     }
 
     public void printFrequencies(int[][] count) {
-        for (int len = MAX_TAG_LENGTH; len >= MIN_TAG_LENGTH; --len) {
+        int len = count[0].length - 1;
+        while (len >= MIN_TAG_LENGTH) {
+            boolean found = false;
+            for (int i = 0; i < MAX_PATHS; ++i) {
+                if (count[i][len] > 0) {
+                    found = true;
+                }
+            }
+            if (found) {
+                break;
+            }
+            --len;
+        }
+        for (; len >= MIN_TAG_LENGTH; --len) {
             printOpenTag("tr");
             printThTaggedValue("length");
             printThTaggedValue("");
@@ -155,5 +167,27 @@ public class HtmlWriter extends PrintWriter {
     public void printCloseTag(String string) {
         print("</");
         printTagSuffix(string);
+    }
+
+    public void printMonoTags(int[] nTags, int[] monoTags) {
+        printOpenTag("tr");
+        printThTaggedValue("percentage");
+        printThTaggedValue("of");
+        printThTaggedValue("mono");
+        printThTaggedValue("tags");
+        int all = 0;
+        int mono = 0;
+        assert nTags.length == monoTags.length;
+        for (int i = 0; i < nTags.length; ++i) {
+            all += nTags[i];
+            mono += monoTags[i];
+        }
+        printThTaggedValue(String.format("%.2f", 1. * mono / all));
+        for (int i = 0; i < nTags.length; ++i) {
+            printOpenTag("td");
+            printTaggedValue("div", String.format("%.2f", 1. * monoTags[i] / nTags[i]), "align=center");
+            printCloseTag("td");
+        }
+        printCloseTag("tr");
     }
 }

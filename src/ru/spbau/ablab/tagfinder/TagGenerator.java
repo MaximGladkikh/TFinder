@@ -11,7 +11,7 @@ import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassComparator;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
-import sun.plugin.javascript.navig.Array;
+import ru.spbau.ablab.tagfinder.util.pairs.Pair;
 
 import java.util.*;
 
@@ -21,40 +21,82 @@ public class TagGenerator {
     public static int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
     public static int MIN_TAG_LENGTH = ConfigReader.getIntProperty("MIN_TAG_LENGTH");
     public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBooleanProperty("EDGE_OF_TWO_AA");
+    public static final boolean EDGE_OF_THREE_AA = ConfigReader.getBooleanProperty("EDGE_OF_THREE_AA");
 
     public static final char[] AA_LET;
     public static final double[] AA_MONO_MASS;
+    public static final int ALPHABET_SIZE = 19;
 
     private static final AAEdge[] AA_EDGES;
-    private static final GapEdge[][] GAP_EDGES;
+    private static final GapEdge[] GAP2_EDGES;
+    private static final GapEdge[] GAP3_EDGES;
+    private static final Edge[][] EDGES;
+
+    private static final ArrayList<Pair<Integer, Pair<Integer, Integer>>> replaceRules = new ArrayList<Pair<Integer, Pair<Integer, Integer>>>();
 
     private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
 
     static {
         @SuppressWarnings("unchecked")
-        ComparablePair<Double, Character>[] acids = new ComparablePair[19];
+        ComparablePair<Double, Character>[] acids = new ComparablePair[ALPHABET_SIZE];
         FastScanner scanner = new FastScanner(MASS_LIST);
         for (int i = 0; i < acids.length; ++i) {
-            char c =scanner.nextToken().charAt(0);
+            char c = scanner.nextToken().charAt(0);
             double mass = scanner.nextDouble();
-            scanner.nextDouble();
             acids[i] = new ComparablePair<Double, Character>(mass, c);
         }
         Arrays.sort(acids);
-        AA_LET = new char[acids.length];
-        AA_MONO_MASS = new double[AA_LET.length];
+        AA_LET = new char[ALPHABET_SIZE];
+        AA_MONO_MASS = new double[ALPHABET_SIZE];
         for (int i = 0; i < acids.length; ++i) {
             AA_LET[i] = acids[i].b;
             AA_MONO_MASS[i] = acids[i].a;
         }
-        AA_EDGES = new AAEdge[AA_LET.length];
-        GAP_EDGES = new GapEdge[AA_LET.length][AA_LET.length];
-        for (int i = 0; i < AA_EDGES.length; ++i) {
+        AA_EDGES = new AAEdge[ALPHABET_SIZE];
+        ArrayList<GapEdge> gap2Edges = new ArrayList<GapEdge>();
+        ArrayList<GapEdge> gap3Edges = new ArrayList<GapEdge>();
+        for (int i = 0; i < ALPHABET_SIZE; ++i) {
             AA_EDGES[i] = new AAEdge(AA_LET[i]);
-            for (int j = 0; j < AA_EDGES.length; ++j) {
-                GAP_EDGES[i][j] = new GapEdge(AA_MONO_MASS[i] + AA_MONO_MASS[j]);
+            for (int j = 0; j < ALPHABET_SIZE; ++j) {
+                double mass = AA_MONO_MASS[i] + AA_MONO_MASS[j];
+                String decoding = "" + AA_LET[i] + AA_LET[j];
+                if (!findEdge(gap2Edges, mass, decoding)) {
+                    gap2Edges.add(new GapEdge(mass, decoding));
+                }
+                for (int k = 0; k < ALPHABET_SIZE; ++k) {
+                    mass = AA_MONO_MASS[i] + AA_MONO_MASS[j] + AA_MONO_MASS[k];
+                    decoding = "" + AA_LET[i] + AA_LET[j] + AA_LET[k];
+                    if (!findEdge(gap3Edges, mass, decoding)) {
+                        gap3Edges.add(new GapEdge(mass, decoding));
+                    }
+                }
             }
         }
+        GAP2_EDGES = gap2Edges.toArray(new GapEdge[gap2Edges.size()]);
+        GAP3_EDGES = gap3Edges.toArray(new GapEdge[gap3Edges.size()]);
+        EDGES = EDGE_OF_TWO_AA ? (EDGE_OF_THREE_AA ? new Edge[][]{AA_EDGES, GAP2_EDGES, GAP3_EDGES} : new Edge[][]{AA_EDGES, GAP2_EDGES}) : new Edge[][]{AA_EDGES};
+
+        for (int i = 0; i < ALPHABET_SIZE; ++i) {
+            for (int j = 0; j < ALPHABET_SIZE; ++j) {
+                for (int k = 0; k < ALPHABET_SIZE; ++k) {
+                    if (Math.abs(AA_MONO_MASS[i] - AA_MONO_MASS[j] - AA_MONO_MASS[k]) < 1e-1) {
+                        replaceRules.add(new Pair<Integer, Pair<Integer, Integer>>(i, new Pair<Integer, Integer>(j, k)));
+                    }
+                }
+            }
+        }
+    }
+
+    private static boolean findEdge(ArrayList<GapEdge> gap2Edges, double mass, String decoding) {
+        boolean found = false;
+        for (GapEdge edge : gap2Edges) {
+            if (MassComparator.compare(edge.getMass(), mass) == 0) {
+                edge.addDecoding(decoding);
+                found = true;
+                break;
+            }
+        }
+        return found;
     }
 
     private static final double[] RATIO_THRESHOLDS;
@@ -73,7 +115,7 @@ public class TagGenerator {
         return lastRatio;
     }
 
-    public static void setDoubleMasses(boolean b) {
+    private static void setDoubleMasses(boolean b) {
         doubleMasses = b;
     }
 
@@ -85,7 +127,39 @@ public class TagGenerator {
                 fillTopTags(database, id, n, ans, i, true);
             }
         }
+        applyReplaceRules(database, id, ans);
         return ans;
+    }
+
+    private static void applyReplaceRules(Database database, int id, ArrayList<Path> ans) {
+        for (int i = 0; i < ans.size(); ++i) {
+            Edge[] edges = ans.get(i).getEdges();
+            ArrayList<Edge> resultEdges = new ArrayList<Edge>();
+            double mass = ans.get(i).beginMass;
+            j:
+            for (Edge edge : edges) {
+                for (Pair<Integer, Pair<Integer, Integer>> rule : replaceRules) {
+                    double needMass = mass + AA_EDGES[rule.b.a].getMass();
+                    Spectrum spectrum = database.getSpectrum(id);
+                    Envelope closest = spectrum.getClosest(needMass);
+                    Envelope reversedClosest = spectrum.getClosest(spectrum.parentMass - needMass);
+                    double mass1 = closest.getMass();
+                    double mass2 = spectrum.parentMass - reversedClosest.getMass();
+                    if (Math.abs(mass1 - needMass) > Math.abs(mass2 - needMass)) {
+                        mass1 = mass2;
+                    }
+                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < 1e-1) {//MassComparator.compare(closest.getMass(), needMass) == 0) {
+                        resultEdges.add(AA_EDGES[rule.b.a]);
+                        resultEdges.add(AA_EDGES[rule.b.b]);
+                        mass += AA_EDGES[rule.a].getMass();
+                        continue j;
+                    }
+                }
+                resultEdges.add(edge);
+                mass += edge.getMass();
+            }
+            ans.set(i, new Path(resultEdges.toArray(new Edge[resultEdges.size()]), ans.get(i).beginMass, ans.get(i).spectrum, ans.get(i).isReversed()));
+        }
     }
 
     private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int i, boolean doubleMasses) {
@@ -113,6 +187,25 @@ public class TagGenerator {
         return getAllPaths(database, id, 1);
     }
 
+    private static double getMinScore(Envelope[] envelopes, double ratio) {
+        double l = 0;
+        double r = 1e5;
+        for (int it = 0; it < 150; ++it) {
+            double med = (l + r) * 0.5;
+            int count = 0;
+            for (Envelope envelope : envelopes) {
+                if (envelope.score >= med) {
+                    ++count;
+                }
+            }
+            if (count >= ratio * envelopes.length - 1e-13) {
+                l = med;
+            } else {
+                r = med;
+            }
+        }
+        return r;
+    }
 
     public static TreeSet<Path> getAllPaths(Database database, int id, double ratio) {
         TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);
@@ -131,29 +224,9 @@ public class TagGenerator {
                 continue;
             }
             ArrayList<Double> list = new ArrayList<Double>();
-            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score, envelopes[i].getMass(), spectrum), bestScore, list, null, usedEnvelopes, minScore);
+            addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score, envelopes[i].getMass(), spectrum, false), bestScore, list, null, usedEnvelopes, minScore);
         }
         return new TreeSet<Path>(bestScore.keySet());
-    }
-
-    private static double getMinScore(Envelope[] envelopes, double ratio) {
-        double l = 0;
-        double r = 100000;
-        for (int it = 0; it < 150; ++it) {
-            double med = (l + r) * 0.5;
-            int count = 0;
-            for (Envelope envelope : envelopes) {
-                if (envelope.score >= med) {
-                    ++count;
-                }
-            }
-            if (count >= ratio * envelopes.length - 1e-13) {
-                l = med;
-            } else {
-                r = med;
-            }
-        }
-        return r;
     }
 
     private static void addTags(Spectrum spectrum, Spectrum reversedSpectrum, int envelopeId, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, boolean[] usedEnvelopes, double minScore) {
@@ -171,14 +244,9 @@ public class TagGenerator {
         peaks.add(currentMass);
         int arrayIndex = envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId);
         usedEnvelopes[arrayIndex] = true;
-        for (Edge edge : AA_EDGES) {
-            findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes, minScore);
-        }
-        if (EDGE_OF_TWO_AA) {
-            for (GapEdge[] edges : GAP_EDGES) {
-                for (Edge edge : edges) {
-                    findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes, minScore);
-                }
+        for (Edge[] edges : EDGES) {
+            for (Edge edge : edges) {
+                findEdges(spectrum, reversedSpectrum, path, bestScore, peaks, parentMassCorrection, currentMass, edge, usedEnvelopes, minScore);
             }
         }
         usedEnvelopes[arrayIndex] = false;

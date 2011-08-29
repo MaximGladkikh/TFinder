@@ -17,7 +17,7 @@ public class UnmatchedStatistics extends StatisticsGenerator {
     @Override
     public void run() {
         try {
-            database = new Database();
+            database = Database.getInstance();
             database.filter(false);
             String fileName = "unmatched.html";
             if (!ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME")) {
@@ -40,7 +40,7 @@ public class UnmatchedStatistics extends StatisticsGenerator {
         }
 
         @Override
-        protected void printTags(HtmlWriter writer, int[][] count, int[] found, Protein protein, Collection<Path> paths) {
+        protected void printTags(HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags, Protein protein, Collection<Path> paths) {
             int pathN = 0;
             for (Path path : paths) {
                 if (pathN == StatisticsGenerator.MAX_PATHS) {

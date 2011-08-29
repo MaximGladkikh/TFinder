@@ -122,4 +122,8 @@ public class Spectrum {
         }
         return ans;
     }
+
+    public boolean hasPeak(double mass) {
+        return MassComparator.compare(mass, getClosest(mass).getMass()) == 0;
+    }
 }

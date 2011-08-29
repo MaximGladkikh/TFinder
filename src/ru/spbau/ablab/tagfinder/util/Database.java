@@ -8,14 +8,16 @@ import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
-import ru.spbau.ablab.tagfinder.util.trie.HashTrie;
-import ru.spbau.ablab.tagfinder.util.trie.Trie;
+import ru.spbau.ablab.tagfinder.util.trie.AKAutomaton;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.*;
 
 public class Database {
+    public static final double WATER_MASS = 18.010565;
+
     public static final String ENVELOPES_DIR = ConfigReader.getProperty("ENVELOPES_DIR");
     public static final String SPECTRUM_FILE_SUFFIX = ConfigReader.getProperty("SPECTRUM_FILE_SUFFIX");
     private static final String PROTEIN_DB_PATH = ConfigReader.getProperty("PROTEIN_DB_PATH");
@@ -27,25 +29,36 @@ public class Database {
     private Map<String, Protein> nameToProtein;
     private Map<Integer, Protein> sequenceIdToProtein;
     private Map<Integer, Double> idToEValue;
-    private Map<Integer, Spectrum> scanToVirtualSpectrum;
     private Map<Integer, Protein> idToMatch;
-    private static final double MAX_DISTANCE = ConfigReader.getDoubleProperty("MAX_DISTANCE");
     private static final double UNIDENTIFIED_THRESHOLD = ConfigReader.getDoubleProperty("UNINDENTIFIED_THRESHOLD");
+    private static final Database INSTANCE;
+    static {
+        Database database = null;
+        try {
+            database = new Database();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        INSTANCE = database;
+    }
 
-    public Database() throws FileNotFoundException {
+    public static Database getInstance() {
+        return INSTANCE;
+    }
+
+    private Database() throws FileNotFoundException {
+        long startTime = System.currentTimeMillis();
         nameToProtein = getNameToProtein();
         scanToSpectrum = getExperimentalSpectra();
-        scanToVirtualSpectrum = getVirtualSpectra();
+        Map<Integer, Spectrum> scanToVirtualSpectrum = getVirtualSpectra();
         if (ConfigReader.getBooleanProperty("ALIGN")) {
             scanToSpectrum = scanToVirtualSpectrum;
         }
-    }
-
-    public Spectrum getVirtualSpectrum(int id) {
-        return scanToVirtualSpectrum.get(id);
+        System.out.printf("Database loaded in %.3fms\n", 1e-3 * (System.currentTimeMillis() - startTime));
     }
 
     public void setSpectrum(int id, Spectrum spectrum) {
+        assert spectrum.id == id;
         scanToSpectrum.put(id, spectrum);
     }
 
@@ -62,6 +75,11 @@ public class Database {
 
     private HashMap<Integer, Protein> bestMatches = new HashMap<Integer, Protein>();
 
+    public String getProteinShortName(int id) {
+        Protein protein = getProtein(id);
+        return protein == null ? null : protein.getShortName();
+    }
+
     public Protein getProtein(int id) {
         Protein protein;
         if (!bestMatches.containsKey(id)) {
@@ -70,6 +88,32 @@ public class Database {
             protein = bestMatches.get(id);
         }
         return protein;
+    }
+
+    private PrintWriter alignWriter;
+    {
+        try {
+           alignWriter = new PrintWriter(new File("pair_list"));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Pair<Double, Protein> getBestFromAlign(int id, Collection<Path> paths) {
+        //TODO: get best from align
+//        double eValue = Double.POSITIVE_INFINITY;
+//        Protein best = null;
+//        HashSet<Protein> proteins = new HashSet<Protein>();
+//        for (Path path : paths) {
+//            for (Pair<Protein,Double> pair : getMatchingProteins(path)) {
+//                proteins.add(pair.a);
+//            }
+//        }
+//        for (Protein protein : proteins) {
+//            alignWriter.println(id + " " + protein.getShortName());
+//        }
+//        alignWriter.flush();
+        return null;
     }
 
     public Protein getProteinFromTable(int id) {
@@ -92,19 +136,13 @@ public class Database {
             scanIds = scanToSpectrum.keySet();
         }
         ArrayList<Integer> ans = new ArrayList<Integer>();
-//        HashSet<String> differentNames = new HashSet<String>();
         for (int id : scanIds) {
             Double eValue = idToEValue.get(id);
             if (eValue == null) {
                 continue;
             }
             if (eValue <= UNIDENTIFIED_THRESHOLD == matched) {
-//                String proteinName = getProteinFromTable(id).getName();
-//                assert proteinName != null;
-//                differentNames.add(proteinName);
-//                if (differentNames.add(proteinName)) {
-                    ans.add(id);
-//                }
+                ans.add(id);
             }
         }
         Collections.sort(ans);
@@ -129,93 +167,101 @@ public class Database {
 
     private HashSet<String> lastMatchedProteins;
 
-    public String getLastMatchedProtein() {
-        return lastMatchedProteins.isEmpty() ? null : lastMatchedProteins.iterator().next();
-    }
-
     public Set<String> getLastMatchedProteins() {
         return lastMatchedProteins;
     }
 
     public int getMatchedProteinsNumber(Collection<Path> paths) {
-        int pathN = 0;
+        assert paths.size() <= StatisticsGenerator.MAX_PATHS;
         lastMatchedProteins = new HashSet<String>();
-        for (Path path : paths) {
-            if (path == null) {
-                continue;
-            }
-            for (Pair<Protein, Double> pair : getMatchingProteins(path)) {
-                Protein protein = pair.a;
-                lastMatchedProteins.add(protein.getName());
-            }
-            ++pathN;
-            if (pathN == StatisticsGenerator.MAX_PATHS) {
-                break;
+        AKAutomaton automaton = new AKAutomaton(paths);
+        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
+            if (automaton.acceptsString(entry.getValue().getString())) {
+                lastMatchedProteins.add(entry.getKey());
             }
         }
         return lastMatchedProteins.size();
     }
 
-    private Trie trie;
+//    public int getMatchedProteinsNumber(Collection<Path> paths) {
+//        int pathN = 0;
+//        lastMatchedProteins = new HashSet<String>();
+//        for (Path path : paths) {
+//            if (path == null) {
+//                continue;
+//            }
+//            for (Pair<Protein, Double> pair : getMatchingProteins(path)) {
+//                Protein protein = pair.a;
+//                lastMatchedProteins.add(protein.getName());
+//            }
+//            ++pathN;
+//            if (pathN == StatisticsGenerator.MAX_PATHS) {
+//                break;
+//            }
+//        }
+//        return lastMatchedProteins.size();
+//    }
 
-    private Collection<Pair<Protein, Double>> getMatchingProteins(Path path) {
-        if (TagGenerator.EDGE_OF_TWO_AA) {
-            throw new AssertionError("not implemented");
-        }
-        if (trie == null) {
-            fillTrie();
-        }
-        return trie.getMatching(path.toString());
-    }
+//    private HashTrie trie;
 
-    private Protein getBestMatch2(int id) {
-        Collection<Path> tags = TagGenerator.getTopTags(this, id, StatisticsGenerator.MAX_PATHS);
-        if (tags.isEmpty()) {
-            return null;
-        }
-        Spectrum spectrum = getSpectrum(id);
-        ArrayList<Pair<Protein, Pair<Double, Double>>> proteins = new ArrayList<Pair<Protein, Pair<Double, Double>>>();
-        for (Path tag : tags) {
-            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag)) {
-                Protein protein = tagMatch.a;
-                double matchBegin = tagMatch.b;
-                double position = tagMatch.b;
-                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
-                    continue;
-                }
-                double shift = matchBegin - tag.beginMass;
-                proteins.add(new Pair<Protein, Pair<Double, Double>>(protein, new Pair<Double, Double>(1., shift)));
-            }
-            Path rev = tag.getReversed();
-            double tagMass = tag.getMass();
-            for (Pair<Protein, Double> tagMatch : getMatchingProteins(rev)) {
-                Protein protein = tagMatch.a;
-                Double matchBegin = tagMatch.b;
-                double position = spectrum.parentMass - tagMatch.b - tagMass;
-                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
-                    continue;
-                }
-                double shift = matchBegin + tag.beginMass + tagMass;
-//                System.err.println(tag + " " + shift + " " + (matchBegin + tagMass) + " " + (-tag.beginMass + shift) + " " + protein.masses[ArrayUtil.getClosestIndex(protein.masses, (-tag.beginMass + shift))]);
-                assert Math.abs(tag.beginMass * (-1) + shift - matchBegin - tagMass) < 1e-1;
-                proteins.add(new Pair<Protein, Pair<Double, Double>>(protein, new Pair<Double, Double>(-1., shift)));
-            }
-        }
-        int bestScore = Integer.MIN_VALUE;
-        Protein bestProtein = null;
+//    private Collection<Pair<Protein, Double>> getMatchingProteins(Path path) {
+//        if (TagGenerator.EDGE_OF_TWO_AA) {
+//            throw new AssertionError("not implemented");
+//        }
+//        if (trie == null) {
+//            fillTrie();
+//        }
+//        return trie.getMatching(path.toString());
+//    }
 
-        for (Pair<Protein, Pair<Double, Double>> pair : proteins) {
-            Protein protein = pair.a;
-            double mult = pair.b.a;
-            double shift = pair.b.b;
-            int score = protein.getMatchScore(spectrum, mult, shift);
-            if (score > bestScore) {
-                bestScore = score;
-                bestProtein = protein;
-            }
-        }
-        return bestProtein;
-    }
+//    private Protein getBestMatch2(int id) {
+//        Collection<Path> tags = TagGenerator.getTopTags(this, id, StatisticsGenerator.MAX_PATHS + 1);
+//        if (tags.isEmpty()) {
+//            return null;
+//        }
+//        Spectrum spectrum = getSpectrum(id);
+//        ArrayList<Pair<Protein, Pair<Double, Double>>> proteins = new ArrayList<Pair<Protein, Pair<Double, Double>>>();
+//        for (Path tag : tags) {
+//            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag)) {
+//                Protein protein = tagMatch.a;
+//                double matchBegin = tagMatch.b;
+//                double position = tagMatch.b;
+//                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
+//                    continue;
+//                }
+//                double shift = matchBegin - tag.beginMass;
+//                proteins.add(new Pair<Protein, Pair<Double, Double>>(protein, new Pair<Double, Double>(1., shift)));
+//            }
+//            Path rev = tag.getReversed();
+//            double tagMass = tag.getMass();
+//            for (Pair<Protein, Double> tagMatch : getMatchingProteins(rev)) {
+//                Protein protein = tagMatch.a;
+//                Double matchBegin = tagMatch.b;
+//                double position = spectrum.parentMass - tagMatch.b - tagMass;
+//                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
+//                    continue;
+//                }
+//                double shift = matchBegin + tag.beginMass + tagMass;
+////                System.err.println(tag + " " + shift + " " + (matchBegin + tagMass) + " " + (-tag.beginMass + shift) + " " + protein.masses[ArrayUtil.getClosestIndex(protein.masses, (-tag.beginMass + shift))]);
+//                assert Math.abs(tag.beginMass * (-1) + shift - matchBegin - tagMass) < 1e-1;
+//                proteins.add(new Pair<Protein, Pair<Double, Double>>(protein, new Pair<Double, Double>(-1., shift)));
+//            }
+//        }
+//        int bestScore = Integer.MIN_VALUE;
+//        Protein bestProtein = null;
+//
+//        for (Pair<Protein, Pair<Double, Double>> pair : proteins) {
+//            Protein protein = pair.a;
+//            double mult = pair.b.a;
+//            double shift = pair.b.b;
+//            int score = protein.getMatchScore(spectrum, mult, shift);
+//            if (score > bestScore) {
+//                bestScore = score;
+//                bestProtein = protein;
+//            }
+//        }
+//        return bestProtein;
+//    }
 
 
     private Protein getBestMatch(int id) {
@@ -224,56 +270,61 @@ public class Database {
             return null;
         }
         Spectrum spectrum = getSpectrum(id);
-//        Collection<Path> allPaths = TagGenerator.getAllPaths(this, id, 0.15);
-        HashMap<Protein, Integer> proteins = new HashMap<Protein, Integer>();
-        for (Path tag : tags) {
-            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag)) {
-                Protein protein = tagMatch.a;
-                double position = tagMatch.b;
-                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
-                    continue;
-                }
-                Integer before = (before = proteins.get(protein)) == null ? 0 : before;
-                proteins.put(protein, before + 1);
-            }
-            double mass = tag.getMass();
-            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag.getReversed())) {
-                Protein protein = tagMatch.a;
-                double position = protein.parentMass - tagMatch.b - mass;
-                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
-                    continue;
-                }
-                Integer before = (before = proteins.get(protein)) == null ? 0 : before;
-                proteins.put(protein, before + 1);
-            }
-        }
+//        HashMap<Protein, Integer> proteins = new HashMap<Protein, Integer>();
+//        for (Path tag : tags) {
+//            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag)) {
+//                Protein protein = tagMatch.a;
+//                double position = tagMatch.b;
+//                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
+//                    continue;
+//                }
+//                Integer before = (before = proteins.get(protein)) == null ? 0 : before;
+//                proteins.put(protein, before + 1);
+//            }
+//            double mass = tag.getMass();
+//            for (Pair<Protein, Double> tagMatch : getMatchingProteins(tag.getReversed())) {
+//                Protein protein = tagMatch.a;
+//                double position = protein.parentMass - tagMatch.b - mass + Database.WATER_MASS;
+//                if (Math.abs(position - tag.beginMass) > MAX_DISTANCE) {
+//                    continue;
+//                }
+//                Integer before = (before = proteins.get(protein)) == null ? 0 : before;
+//                proteins.put(protein, before + 1);
+//            }
+//        }
         int bestScore = Integer.MIN_VALUE;
         Protein bestProtein = null;
         double minDiff = Double.POSITIVE_INFINITY;
-        for (Map.Entry<Protein, Integer> entry : proteins.entrySet()) {
-            double diff = Math.abs(entry.getKey().parentMass - spectrum.parentMass);
-            if (entry.getValue() > bestScore || entry.getValue().equals(bestScore) && minDiff > diff) {
-                bestScore = entry.getValue();
-                bestProtein = entry.getKey();
+        AKAutomaton automaton = new AKAutomaton(tags);
+        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
+            Protein protein = entry.getValue();
+            int score = automaton.getMatchesNumber(protein.getString(), protein.parentMass);
+            double diff = Math.abs(protein.parentMass - spectrum.parentMass);
+            if (score > bestScore || score == bestScore && minDiff > diff) {
+                bestScore = score;
+                bestProtein = protein;
                 minDiff = diff;
             }
         }
-//        System.err.println("bestmatch id=" + id + " score = " + bestScore + " " +(bestProtein == null ? null : bestProtein.getName()));
-//        System.err.println(bestProtein != null && bestProtein.getName().equals(getProteinName(id)));
         return bestProtein;
     }
 
-    private void fillTrie() {
-        trie = new HashTrie();
-        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
-            char[] s = entry.getValue().getString().toCharArray();
-            for (int length = TagGenerator.MIN_TAG_LENGTH; length <= TagGenerator.MAX_TAG_LENGTH; ++length) {
-                for (int i = 0; i + length <= s.length; ++i) {
-                    trie.add(s, i, i + length, entry.getValue(), entry.getValue().masses[i]);
-                }
-            }
-        }
-    }
+//    private void fillTrie() {
+//        long startTime = System.currentTimeMillis();
+//        trie = new HashTrie();
+//        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
+//            char[] s = entry.getValue().getString().toCharArray();
+//            for (int i = 0; i + MIN_TAG_LENGTH <= s.length; ++i) {
+//                long hashKey = StringUtil.getHash(s, i, i + MIN_TAG_LENGTH - 1);
+//                for (int length = MIN_TAG_LENGTH; length <= MAX_TAG_LENGTH + 3 && i + length <= s.length; ++length) {
+//                    hashKey = hashKey * StringUtil.MUL + s[i + length - 1];
+//                    trie.add(hashKey, entry.getValue(), entry.getValue().masses[i]);
+//                }
+//            }
+//        }
+//        System.out.printf("Subproteins trie generation %.3fms\n", 1e-3 * (System.currentTimeMillis()
+//                - startTime));
+//    }
 
     public Spectrum getSpectrum(int id) {
         return scanToSpectrum.get(id);
@@ -306,7 +357,7 @@ public class Database {
                     continue;
                 }
                 Envelope closestExp = scanToSpectrum.get(id).getClosest(mass);
-                mass = strings[4].equals("B") ? mass : (parentMass - mass);
+                mass = strings[4].equals("B") ? mass : (parentMass - mass + Database.WATER_MASS);
                 envelopes.add(new Envelope(mass, closestExp.score, closestExp.intensity));
             }
             ans.put(id, new Spectrum(id, envelopes.toArray(new Envelope[envelopes.size()]), parentMass));
