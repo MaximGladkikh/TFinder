@@ -39,24 +39,8 @@ public class UnmatchedStatistics extends StatisticsGenerator {
             super(true);
         }
 
-        @Override
-        protected void printTags(HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags, Protein protein, Collection<Path> paths) {
-            int pathN = 0;
-            for (Path path : paths) {
-                if (pathN == StatisticsGenerator.MAX_PATHS) {
-                    break;
-                }
-                writer.printOpenTag("td");
-                writer.printTaggedValue("div", path, "align=center");
-                ++count[pathN][path.length()];
-                writer.printCloseTag("span");
-                writer.printCloseTag("div");
-                writer.printCloseTag("td");
-                ++pathN;
-            }
-            for (; pathN < MAX_PATHS; ++pathN) {
-                writer.printEmptyTag("td");
-            }
+        protected void preProcess(int id, Collection<Path> paths) {
+            bestFromAlign = database.getBestFromAlign(id, paths);
         }
     }
 }

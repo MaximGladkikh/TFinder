@@ -16,15 +16,17 @@ public class FastScanner {
 	}
 
 	public void skipToken(String token) {
-		while (!nextToken().equals(token))
-			;
+		while (true) {
+            if (!(!nextToken().equals(token))) break;
+        }
 	}
 
 	public boolean skipLine(String line) {
 		try {
 			String s;
-			while ((s = reader.readLine()) != null && !line.equals(s.trim()))
-				;
+			while (true) {
+                if (!((s = reader.readLine()) != null && !line.equals(s.trim()))) break;
+            }
 			return s != null;
 		} catch (IOException e) {
 			e.printStackTrace();

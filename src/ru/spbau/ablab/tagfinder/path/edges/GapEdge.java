@@ -1,13 +1,12 @@
 package ru.spbau.ablab.tagfinder.path.edges;
 
 import ru.spbau.ablab.tagfinder.util.MassComparator;
-import ru.spbau.ablab.tagfinder.util.StringUtil;
 
 import java.util.ArrayList;
 
-
 public class GapEdge implements Edge {
 	private final double mass;
+
     private final ArrayList<String> decodingsList = new ArrayList<String>();
     private char[][] decodings;
 
@@ -47,6 +46,6 @@ public class GapEdge implements Edge {
 	
 	@Override
 	public String toString() {
-		return "[" + StringUtil.toStringPrecision(mass, 2) + "]";
+		return "[" + String.format("%.2f", mass) + "]";
 	}
 }

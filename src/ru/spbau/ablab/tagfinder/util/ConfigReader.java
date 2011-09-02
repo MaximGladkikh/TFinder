@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.StringTokenizer;
 
 
@@ -13,6 +14,7 @@ public class ConfigReader {
 	private static final String CONFIG_FILE_PATH = "stat.cfg";
 	private static final HashMap<String, String> PROPERTY_MAP = new HashMap<String, String>();
 	static {
+        Locale.setDefault(Locale.US);
 		FastScanner scanner;
 		try {
 			scanner = new FastScanner(new File(CONFIG_FILE_PATH));

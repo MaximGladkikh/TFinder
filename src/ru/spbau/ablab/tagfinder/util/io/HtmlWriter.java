@@ -1,7 +1,5 @@
 package ru.spbau.ablab.tagfinder.util.io;
 
-import ru.spbau.ablab.tagfinder.util.StringUtil;
-
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
@@ -73,7 +71,7 @@ public class HtmlWriter extends PrintWriter {
         printThTaggedValue(String.format("%.2f", sum));
         for (int i = 0; i < MAX_PATHS; ++i) {
             printOpenTag("td");
-            printTaggedValue("div", StringUtil.toStringPrecision(1. * found[i] / scansProcessed, 5), "align=center");
+            printTaggedValue("div", String.format("%.5f", 1. * found[i] / scansProcessed), "align=center");
             printCloseTag("td");
         }
         printThTaggedValue(String.format("%.2f", predictedProteinFoundNumber * 1. / scansProcessed));

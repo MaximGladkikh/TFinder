@@ -14,7 +14,7 @@ import static ru.spbau.ablab.tagfinder.TagGenerator.*;
 public class AKAutomaton {
     private static final double MAX_DISTANCE = ConfigReader.getDoubleProperty("MAX_DISTANCE");
     private static final short ROOT = 0;
-    private static final int[] AA_INDEX = new int[Character.MAX_VALUE];
+    public static final int[] AA_INDEX = new int[Character.MAX_VALUE];
 
     static {
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
@@ -23,8 +23,9 @@ public class AKAutomaton {
     }
 
     private int[][] next;
-    private Path[] accepted;
+    private Path[] acceptedPath;
     private int[] sufLinks;
+    private int[] previousAcceptedLink;
     private int verticesCount = 1;
 
     private AKAutomaton() {
@@ -33,11 +34,13 @@ public class AKAutomaton {
     public AKAutomaton(Collection<Path> paths) {
         next = new int[1][AA_LET.length];
         Arrays.fill(next[ROOT], -1);
-        accepted = new Path[1];
+        acceptedPath = new Path[1];
         for (Path path : paths) {
             addPath(path);
             addPath(path.getReversed());
         }
+        previousAcceptedLink = new int[next.length];
+        Arrays.fill(previousAcceptedLink, -1);
         calcLinks();
     }
 
@@ -49,8 +52,8 @@ public class AKAutomaton {
             int index = AA_INDEX[string.charAt(i)];
             prefixMass += AA_MONO_MASS[index];
             vertex = next[vertex][index];
-            for (int link = vertex; accepted[link] != null; link = sufLinks[link]) {
-                Path tag = accepted[link];
+            for (int link = acceptedPath[vertex] == null ? previousAcceptedLink[vertex] : vertex; link > 0; link = previousAcceptedLink[link]) {
+                Path tag = acceptedPath[link];
                 if (!tag.isReversed()) {
                     double position = prefixMass - tag.getMass();
                     if (Math.abs(position - tag.beginMass) <= MAX_DISTANCE) {
@@ -72,7 +75,11 @@ public class AKAutomaton {
         for (int i = 0; i < s.length(); ++i) {
             int c = AA_INDEX[s.charAt(i)];
             vertex = next[vertex][c];
-            if (accepted[vertex] != null) {
+            if (acceptedPath[vertex] != null || previousAcceptedLink[vertex] >= 0) {
+//                System.err.println(acceptedPath[vertex]);
+//                if (previousAcceptedLink[vertex] >= 0) {
+//                    System.err.println(acceptedPath[previousAcceptedLink[vertex]]);
+//                }
                 return true;
             }
         }
@@ -95,9 +102,9 @@ public class AKAutomaton {
     }
 
     private void calcLinks(int vertex, StringBuilder stringBuilder) {
-        sufLinks[vertex] = getBestAlignmentVertexIndex(stringBuilder);
-        if (accepted[vertex] == null) {
-            accepted[vertex] = accepted[sufLinks[vertex]];
+        int link = sufLinks[vertex] = getBestAlignmentVertexIndex(stringBuilder);
+        if (link >= 0) {
+            previousAcceptedLink[vertex] = acceptedPath[link] == null ? previousAcceptedLink[link] : link;
         }
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
             stringBuilder.append(AA_LET[i]);
@@ -125,17 +132,23 @@ public class AKAutomaton {
         addPath(ROOT, path, path.getEdges(), 0);
     }
 
+//    StringBuilder builder = new StringBuilder();
+
     private void addPath(int vertex, Path path, Edge[] edges, int pos) {
         if (edges.length == pos) {
-            accepted[vertex] = path;
+            acceptedPath[vertex] = path;
+//            System.err.println(builder + " " + path.beginMass + " " + path.isReversed());
             return;
         }
         for (char[] decoding : edges[pos].getDecodings()) {
             int nextVertex = vertex;
+//            int len = builder.length();
             for (char c : decoding) {
+//                builder.append(c);
                 nextVertex = getNextVertex(nextVertex, c);
             }
             addPath(nextVertex, path, edges, pos + 1);
+//            builder.replace(len, builder.length(), "");
         }
     }
 
@@ -152,9 +165,9 @@ public class AKAutomaton {
             int[][] next2 = new int[next.length * 2][];
             System.arraycopy(next, 0, next2, 0, next.length);
             next = next2;
-            Path[] accepted2 = new Path[accepted.length * 2];
-            System.arraycopy(accepted, 0, accepted2, 0, accepted.length);
-            accepted = accepted2;
+            Path[] accepted2 = new Path[acceptedPath.length * 2];
+            System.arraycopy(acceptedPath, 0, accepted2, 0, acceptedPath.length);
+            acceptedPath = accepted2;
         }
         next[verticesCount] = new int[ALPHABET_SIZE];
         Arrays.fill(next[verticesCount], -1);

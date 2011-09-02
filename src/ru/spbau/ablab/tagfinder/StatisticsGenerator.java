@@ -4,7 +4,9 @@ import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
+import ru.spbau.ablab.tagfinder.util.MassComparator;
 import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
+import ru.spbau.ablab.tagfinder.util.pairs.Pair;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
@@ -75,6 +77,7 @@ public class StatisticsGenerator implements Runnable {
         public int matchedAlign = 0;
         public int predictedProteinFound = 0;
         public int processed = 0;
+        protected Pair<Double, Protein> bestFromAlign;
 
         public MatchedScanProcessor(boolean skip, boolean dontMatch) {
             this.skip = skip;
@@ -89,30 +92,35 @@ public class StatisticsGenerator implements Runnable {
             this(false);
         }
 
+        protected void preProcess(int id, Collection<Path> paths) {
+        }
+
         public boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags) {
             List<Path> paths = TagGenerator.getTopTags(database, id, MAX_PATHS);
             if (skip && paths.isEmpty()) {
                 return false;
             }
             ++processed;
-            database.getBestFromAlign(id, paths);
+            preProcess(id, paths);
             writer.printOpenTag("tr");
             writer.printThTaggedValue(id);
             writer.printThTaggedValue(database.getSpectrum(id).envelopes.length);
             Protein protein = database.getProteinFromTable(id);
-//            Protein protein = database.getProtein(id);
             writer.printThTaggedValue(TagGenerator.getLastRatio());
             if (dontMatch) {
                 writer.printTaggedValue("td", "?");
             } else {
                 printProteinDBMatches(writer, paths);
             }
-            writer.printThTaggedValue(String.format("%.2E", database.getEValue(id)));
+            writer.printThTaggedValue(String.format("%.2E", bestFromAlign == null ? database.getEValue(id) : bestFromAlign.a));
             printTags(writer, count, found, nTags, monoTags, protein, paths);
             printMatchedProteinsStats(writer, id);
             writer.printCloseTag("tr");
             writer.flush();
             System.out.println(id + " ok");
+            if (protein != null && paths.size() > 0f) {
+                System.err.println((protein.parentMass - paths.get(0).spectrum.parentMass));
+            }
             return true;
         }
 
@@ -134,6 +142,7 @@ public class StatisticsGenerator implements Runnable {
         protected void printTags(HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags, Protein protein, Collection<Path> paths) {
             int pathN = 0;
             boolean foundFirst = false;
+//            System.err.println(Arrays.toString(paths.iterator().next().spectrum.envelopes));
             for (Path path : paths) {
                 if (pathN == MAX_PATHS) {
                     break;
@@ -147,6 +156,28 @@ public class StatisticsGenerator implements Runnable {
                 writer.printTagPrefix("span");
                 boolean notPrint = false;
                 Double bestAbs = null;
+//                System.err.println(path);
+//                double mass = path.beginMass;
+//                System.err.print(path.spectrum.getClosest(mass).getMass());
+//                for (Edge edge : path.getEdges()) {
+//                    mass += edge.getMass();
+//                    System.err.print(" " + path.spectrum.getClosest(mass).getMass());
+//                }
+//                System.err.println("");
+//                int index = protein.getString().indexOf(path.toString());
+//                if (index >= 0) {
+//                    System.err.println(Protein.getStringMass(protein.getString().substring(0, index)));
+//                }
+//                if (path.toString().equals("KHKP")) {
+//                    System.err.println(protein.getShortName());
+//                    String s = protein.getString();
+//                    System.err.println(s);
+//                    System.err.println(path.beginMass);
+//                    System.err.println(protein.parentMass + " " +  path.spectrum.parentMass);
+//                    int pos = s.indexOf("PKHK");
+//                    System.err.println((protein.parentMass - path.beginMass - path.getMass() + Database.WATER_MASS) + " " + Protein.getStringMass(s.substring(0, pos)));
+//                    System.exit(13);
+//                }
                 if (protein != null && protein.contains(path)) {
                     bestAbs = protein.getBestLastAlignment();
                     if (!foundFirst) {
@@ -194,18 +225,20 @@ public class StatisticsGenerator implements Runnable {
         }
 
         protected void printMatchedProteinsStats(HtmlWriter writer, int id) {
-            boolean predictedFound = database.getLastMatchedProteins().contains(database.getProteinFromTable(id).getName());
+            System.err.println(bestFromAlign);
+            Protein proteinFromTable = bestFromAlign == null ? database.getProteinFromTable(id) : bestFromAlign.b;
+            boolean predictedFound = database.getLastMatchedProteins().contains(proteinFromTable.getName());
             writer.printTaggedValue("td", predictedFound ? "+" : "-");
             if (predictedFound) {
                 ++predictedProteinFound;
             }
-            boolean matchesAlign = database.getProteinFromTable(id).equals(database.getProtein(id));
+            boolean matchesAlign = proteinFromTable.equals(database.getProtein(id));
             if (matchesAlign) {
                 ++matchedAlign;
             }
             writer.printOpenTag("td");
             writer.printTaggedValue("div", database.getProteinShortName(id), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
-            writer.printTaggedValue("div", database.getProteinFromTable(id).getShortName());
+            writer.printTaggedValue("div", proteinFromTable.getShortName());
             writer.printCloseTag("td");
         }
     }
@@ -216,7 +249,7 @@ public class StatisticsGenerator implements Runnable {
     }
 
     private String getOutputFilename() {
-        return (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + "_" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
-//        return (TagGenerator.EDGE_OF_TWO_AA ? "2" : "1") + "_" + (TagGenerator.DOUBLE_MASSES ? "doub" : "for") + "_" + ((int) (MassComparator.ERROR_THRESHOLD * 2e6)) + "ppm_" + (SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
+//        return (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + "_" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
+        return (TagGenerator.EDGE_OF_TWO_AA ? "2" : "1") + "_" + (TagGenerator.DOUBLE_MASSES ? "doub" : "for") + "_" + ((int) (MassComparator.ERROR_THRESHOLD * 2e6)) + "ppm_" + (SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
     }
 }

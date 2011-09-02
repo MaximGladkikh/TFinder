@@ -87,9 +87,9 @@ public class TagGenerator {
         }
     }
 
-    private static boolean findEdge(ArrayList<GapEdge> gap2Edges, double mass, String decoding) {
+    private static boolean findEdge(ArrayList<GapEdge> edges, double mass, String decoding) {
         boolean found = false;
-        for (GapEdge edge : gap2Edges) {
+        for (GapEdge edge : edges) {
             if (MassComparator.compare(edge.getMass(), mass) == 0) {
                 edge.addDecoding(decoding);
                 found = true;
@@ -142,13 +142,13 @@ public class TagGenerator {
                     double needMass = mass + AA_EDGES[rule.b.a].getMass();
                     Spectrum spectrum = database.getSpectrum(id);
                     Envelope closest = spectrum.getClosest(needMass);
-                    Envelope reversedClosest = spectrum.getClosest(spectrum.parentMass - needMass);
+                    Envelope reversedClosest = spectrum.getClosest(spectrum.parentMass - needMass + Database.WATER_MASS);
                     double mass1 = closest.getMass();
-                    double mass2 = spectrum.parentMass - reversedClosest.getMass();
+                    double mass2 = spectrum.parentMass - reversedClosest.getMass() + Database.WATER_MASS;
                     if (Math.abs(mass1 - needMass) > Math.abs(mass2 - needMass)) {
                         mass1 = mass2;
                     }
-                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < 1e-1) {//MassComparator.compare(closest.getMass(), needMass) == 0) {
+                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < MassComparator.ERROR_THRESHOLD * 2) {//MassComparator.compare(closest.getMass(), needMass) == 0) {
                         resultEdges.add(AA_EDGES[rule.b.a]);
                         resultEdges.add(AA_EDGES[rule.b.b]);
                         mass += AA_EDGES[rule.a].getMass();
@@ -162,10 +162,10 @@ public class TagGenerator {
         }
     }
 
-    private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int i, boolean doubleMasses) {
+    private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int thresholdIndex, boolean doubleMasses) {
         setDoubleMasses(doubleMasses);
-        Set<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[i]);
-        lastRatio = RATIO_THRESHOLDS[i];
+        Set<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[thresholdIndex]);
+        lastRatio = RATIO_THRESHOLDS[thresholdIndex];
         int pathN = 0;
         paths:
         for (Path path : paths) {
@@ -174,7 +174,7 @@ public class TagGenerator {
             }
             ++pathN;
             for (Path stored : ans) {
-                if (stored.toString().equals(path.toString())) {
+                if (stored.canBeReversedTo(path)) {
                     continue paths;
                 }
             }
@@ -189,7 +189,7 @@ public class TagGenerator {
 
     private static double getMinScore(Envelope[] envelopes, double ratio) {
         double l = 0;
-        double r = 1e5;
+        double r = 1e5;//Max envelope score
         for (int it = 0; it < 150; ++it) {
             double med = (l + r) * 0.5;
             int count = 0;
@@ -208,7 +208,7 @@ public class TagGenerator {
     }
 
     public static TreeSet<Path> getAllPaths(Database database, int id, double ratio) {
-        TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);
+        TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);//best score for each string
         Spectrum spectrum = database.getSpectrum(id);
         double parentMass = spectrum.parentMass;
         Envelope[] envelopes = spectrum.envelopes;
@@ -233,8 +233,11 @@ public class TagGenerator {
         if (path.length() >= MIN_TAG_LENGTH) {
             Double d = (d = bestScore.get(path)) == null ? Double.NEGATIVE_INFINITY : d;
             if (d < path.score) {
-                bestScore.put(path, Math.max(d, path.score));
+                bestScore.put(path, path.score);
             }
+        }
+        if (path.toString().equals("SSA")) {
+            System.err.print("");
         }
         if (path.length() >= MAX_TAG_LENGTH) {
             return;

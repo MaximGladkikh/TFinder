@@ -65,21 +65,9 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
         do {
             Spectrum experimental = database.getSpectrum(id);
             boolean[] delete = new boolean[experimental.envelopes.length];
-        //            Protein protein = database.getProtein(id);
-//            System.err.println(Arrays.toString(experimental.envelopes));
-//            System.err.println(Arrays.toString(protein.masses));
-//            System.err.println(protein.getName());
             Protein protein = database.getProtein(id);
-//        System.err.println(protein != null && protein.getName().equals(database.getProteinName(id)));
-//        if (protein == null || !protein.getName().equals(database.getProteinFromTable(id).getName())) {
-//            System.err.println(((protein == null) ? null: protein.getName()) + " " + database.getProteinFromTable(id).getName());
-//            System.err.println(protein.getName() + " " + protein.getMatchScore(experimental));
-//            System.err.println(database.getProteinName(id) + " " + database.getProtein(id).getMatchScore(experimental));
-//            throw new AssertionError("" + id);
-//        }
-//        assert protein == null || protein.getName().equals(database.getProteinName(id));
-//            removeTheoreticalSpectrum(experimental, delete, protein);
-//            success = removeTags(experimental, delete, protein);
+            removeTheoreticalSpectrum(experimental, delete, protein);
+            success = removeTags(experimental, delete, protein);
             ArrayList<Envelope> envelopes = new ArrayList<Envelope>();
             for (int i = 0; i < delete.length; ++i) {
                 if (!delete[i]) {
@@ -88,7 +76,7 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
             }
             Spectrum newSpectrum = new Spectrum(id, envelopes.toArray(new Envelope[envelopes.size()]), experimental.parentMass);
             database.setSpectrum(id, newSpectrum);
-        } while (false && success);
+        } while (success);
         System.err.println("cleaned " + id);
     }
 
@@ -98,21 +86,15 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
         }
         boolean found = false;
         Set<Path> paths = TagGenerator.getAllPaths(database, experimental.id);
-        String proteinString = protein.getString();
         for (Path path : paths) {
-            found |= removeTag(experimental, delete, protein, path, proteinString);
-//            found |= removeTag(experimental, delete, protein, path.getReversed(), proteinString);
+            found |= removeTag(experimental, delete, protein, path);
+            found |= removeTag(experimental, delete, protein, path.getReversed());
         }
         return found;
     }
 
-    private boolean removeTag(Spectrum experimental, boolean[] delete, Protein protein, Path path, String proteinString) {
+    private boolean removeTag(Spectrum experimental, boolean[] delete, Protein protein, Path path) {
         Edge[] edges = path.getEdges();
-//        StringBuilder builder = new StringBuilder();
-//        for (Edge e : edges) {
-//            builder.append(e);
-//        }
-//        String s = builder.toString();
         if (!protein.contains(path)) {
             return false;
         }

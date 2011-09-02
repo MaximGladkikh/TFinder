@@ -115,15 +115,21 @@ public class Spectrum {
                 l = med + 1;
             }
         }
-        if (ans + 1 < envelopes.length && Math.abs(envelopes[ans].getMass() - mass) > Math.abs(envelopes[ans + 1].getMass() - mass)) {
-            ans = 1;
-        } else if (ans > 0 && Math.abs(envelopes[ans - 1].getMass() - mass) < Math.abs(envelopes[ans].getMass() - mass)) {
-            --ans;
-        }
+        ans = goSide(mass, ans, 1);
+        ans = goSide(mass, ans, -1);
         return ans;
     }
 
-    public boolean hasPeak(double mass) {
-        return MassComparator.compare(mass, getClosest(mass).getMass()) == 0;
+    private int goSide(double mass, int ans, int add) {
+        for (int it = ans; it < envelopes.length && it >= 0; it += add) {
+            boolean toBreak = MassComparator.compare(envelopes[ans].getMass(), envelopes[it].getMass()) != 0;
+            if (Math.abs(envelopes[it].getMass() - mass) < Math.abs(envelopes[ans].getMass() - mass)) {
+                ans = it;
+            }
+            if (toBreak) {
+                break;
+            }
+        }
+        return ans;
     }
 }

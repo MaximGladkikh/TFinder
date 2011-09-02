@@ -4,42 +4,43 @@ import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.TagGenerator;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
+import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
+import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
+import ru.spbau.ablab.tagfinder.util.MassComparator;
 
 import java.util.Comparator;
 
 public class Path implements Comparable<Path> {
-	public static final double SCORE_EPS = 1e-5;
-	public static final int GAP_LENGTH_IN_AACOUNT = 1;
-	
-	public static final Comparator<Path> LENGTH_FIRST_COMPARATOR = new LengthFirstComparator();
+    public static final int GAP_LENGTH_IN_AA_COUNT = ConfigReader.getIntProperty("GAP_LENGTH_IN_AA_COUNT");
+    public static final Comparator<Path> LENGTH_FIRST_COMPARATOR = new LengthFirstComparator();
 
-	public final double score;
+    private static final double SCORE_EPS = 1e-5;
+
+    public final double score;
     public final Edge edge;
     public final int edges;
     private final int length;
     private final Path parent;
     public final double beginMass;
     public final Spectrum spectrum;
-    private Boolean monoTag = null;
+    private Boolean isMonoTag = null;
     private final boolean reversed;
 
     public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum, boolean reversed) {
         this.reversed = reversed;
         this.spectrum = spectrum;
-        if (beginMass < -3) {
-            throw new AssertionError("bm = " + beginMass);
-        }
         this.score = score;
         this.edge = edge;
         if (parent != null && parent.edge == null) {
             parent = null;
         }
-        length = (parent == null ? 0 : parent.length()) + (edge instanceof AAEdge ? 1 : GAP_LENGTH_IN_AACOUNT) ;
+        length = (parent == null ? 0 : parent.length()) + (edge instanceof AAEdge ? 1 : GAP_LENGTH_IN_AA_COUNT);
         edges = 1 + (parent == null ? 0 : parent.edges);
         this.parent = parent;
         this.beginMass = beginMass;
+        assert Database.ALIGN || beginMass + getMass() <= spectrum.parentMass;
     }
 
     public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
@@ -50,17 +51,17 @@ public class Path implements Comparable<Path> {
         this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum, reversed), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum, reversed);
     }
 
-	public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
+    public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
         this(edges, 0, beginMass, spectrum, reversed);
-	}
+    }
 
-	public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum, boolean reversed) {
+    public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum, boolean reversed) {
         this(edges, edges.length - 1, score, beginMass, spectrum, reversed);
-	}
+    }
 
-	public int length() {
-		return length;
-	}
+    public int length() {
+        return length;
+    }
 
     public Path getReversed() {
         return new Path(getReversedEdges(), score, spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, spectrum, !reversed);
@@ -68,59 +69,83 @@ public class Path implements Comparable<Path> {
 
     public double getMass() {
         double mass = 0;
-        Path path = this;
-        while (path != null && path.edge != null) {
+        for (Path path = this; path != null && path.edge != null; path = path.parent) {
             mass += path.edge.getMass();
-            path = path.parent;
         }
         return mass;
     }
 
     public boolean isMonoTag() {
-        if (monoTag != null) {
-            return monoTag;
+        if (isMonoTag != null) {
+            return isMonoTag;
         }
         Edge[] edges = getEdges();
-        return monoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass + Database.WATER_MASS, edges, -1.);
+        Edge[] reversedEdges = getReversedEdges();
+        isMonoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, edges, -1.);
+        isMonoTag |= spectrumHasPeaks(beginMass, reversedEdges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, reversedEdges, -1.);
+        assert length() <= 1 || (TagGenerator.DOUBLE_MASSES || isMonoTag);
+        return isMonoTag;
     }
 
     private boolean spectrumHasPeaks(double mass, Edge[] edges, double d) {
-        boolean matched = spectrum.hasPeak(mass);
+        Envelope envelope = spectrum.getClosest(mass);
+        if (MassComparator.compare(envelope.getMass(), mass, MassComparator.ERROR_THRESHOLD * 4) != 0) {
+            return false;
+        }
         for (Edge edge : edges) {
             mass += edge.getMass() * d;
-            matched &= spectrum.hasPeak(mass);
+            envelope = spectrum.getClosest(mass);
+            if (MassComparator.compare(mass, envelope.getMass(), MassComparator.ERROR_THRESHOLD * 4) != 0) {
+                return false;
+            }
+            mass = envelope.getMass();
         }
-        return matched;
+        return true;
     }
 
     public boolean isReversed() {
         return reversed;
     }
 
-    private static final class LengthFirstComparator implements Comparator<Path>{
-		@Override
-		public int compare(Path o1, Path o2) {
-			int lengths = o1.compareLengths(o2);
-			if (lengths != 0) {
-				return lengths;
-			}
-			return o1.lexicographicCompare(o2);
-		}
-		
-	}
+    public boolean canBeReversedTo(Path path) {
+        if (edges != path.edges) {
+            return false;
+        }
+        Edge[] thisEdges = getEdges();
+        Edge[] thatEdges = path.getEdges();
+        boolean matches = true;
+        boolean reversedMatches = true;
+        for (int i = 0; i < edges; ++i) {
+            matches &= thisEdges[i].compareTo(thatEdges[i]) == 0;
+            reversedMatches &= thisEdges[i].compareTo(thatEdges[edges - i - 1]) == 0;
+        }
+        return matches | reversedMatches;
+    }
 
-	@Override
-	public int compareTo(Path o) {
-		if (StatisticsGenerator.SCORE_BY_LENGTH) {
-			return LENGTH_FIRST_COMPARATOR.compare(this, o);
-		}
-		if (Math.abs(score - o.score) > SCORE_EPS) {
-			return score > o.score ? -1 : 1;
-		}
-		return LENGTH_FIRST_COMPARATOR.compare(this, o);
-	}
+    private static final class LengthFirstComparator implements Comparator<Path> {
+        @Override
+        public int compare(Path o1, Path o2) {
+            int lengths = o1.compareLengths(o2);
+            if (lengths != 0) {
+                return lengths;
+            }
+            return o1.lexicographicCompare(o2);
+        }
 
-	private int lexicographicCompare(Path p2) {
+    }
+
+    @Override
+    public int compareTo(Path o) {
+        if (StatisticsGenerator.SCORE_BY_LENGTH) {
+            return LENGTH_FIRST_COMPARATOR.compare(this, o);
+        }
+        if (Math.abs(score - o.score) > SCORE_EPS) {
+            return score > o.score ? -1 : 1;
+        }
+        return LENGTH_FIRST_COMPARATOR.compare(this, o);
+    }
+
+    private int lexicographicCompare(Path p2) {
         Path p1 = this;
         while (p1 != null && p2 != null) {
             int d = p1.edge.compareTo(p2.edge);
@@ -133,21 +158,21 @@ public class Path implements Comparable<Path> {
         if (p1 == null) {
             return p2 == null ? 0 : -1;
         }
-		return 1;
-	}
+        return 1;
+    }
 
-	private int compareLengths(Path o) {
-		if (length > o.length) {
-			return -1;
-		} else if (length < o.length) {
-			return 1;
-		}
-		return 0;
-	}
+    private int compareLengths(Path o) {
+        if (length > o.length) {
+            return -1;
+        } else if (length < o.length) {
+            return 1;
+        }
+        return 0;
+    }
 
-	public Path append(Edge edge, double score) {
+    public Path append(Edge edge, double score) {
         return new Path(this, this.score + Math.log(score), edge, beginMass, spectrum);
-	}
+    }
 
     private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH * 2];
 
@@ -178,21 +203,21 @@ public class Path implements Comparable<Path> {
     }
 
     @Override
-	public String toString() {
+    public String toString() {
         StringBuilder builder = new StringBuilder();
-		for (Edge edge : getEdges()) {
-			builder.append(edge);
-		}
-		return builder.toString();
-	}
+        for (Edge edge : getEdges()) {
+            builder.append(edge);
+        }
+        return builder.toString();
+    }
 
-	public Path subPath(int start, int end) {
-		if (start > end) {
-			throw new IllegalArgumentException();
-		}
+    public Path subPath(int start, int end) {
+        if (start > end) {
+            throw new IllegalArgumentException();
+        }
         Edge[] currentEdges = getEdges();
-		Edge[] edges = new Edge[end - start];
+        Edge[] edges = new Edge[end - start];
         System.arraycopy(currentEdges, start, edges, 0, end - start);
-		return new Path(edges, Double.NaN, spectrum, reversed);
-	}
+        return new Path(edges, Double.NaN, spectrum, reversed);
+    }
 }
