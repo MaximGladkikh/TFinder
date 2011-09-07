@@ -1,6 +1,6 @@
 package ru.spbau.ablab.tagfinder.path.edges;
 
-import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.MassUtil;
 
 import static ru.spbau.ablab.tagfinder.Protein.AA_MASS_ARRAY;
 
@@ -33,7 +33,7 @@ public class AAEdge implements Edge {
         if (o instanceof AAEdge) {
             return c - ((AAEdge) o).c;
         }
-        return MassComparator.compare(getMass(), o.getMass());
+        return MassUtil.compare(getMass(), o.getMass());
     }
 
     @Override

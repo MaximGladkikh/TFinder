@@ -1,6 +1,6 @@
 package ru.spbau.ablab.tagfinder.path.edges;
 
-import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.MassUtil;
 
 import java.util.ArrayList;
 
@@ -41,7 +41,7 @@ public class GapEdge implements Edge {
 
 	@Override
 	public int compareTo(Edge o) {
-		return MassComparator.compare(mass, o.getMass());
+		return MassUtil.compare(mass, o.getMass());
 	}
 	
 	@Override

@@ -1,9 +1,7 @@
-package ru.spbau.ablab.tagfinder.util.trie;
+package ru.spbau.ablab.tagfinder.util;
 
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
-import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,7 +58,7 @@ public class AKAutomaton {
                         paths.add(tag);
                     }
                 } else {
-                    double position = parentMass - prefixMass + Database.WATER_MASS;
+                    double position = MassUtil.convertIonsType(prefixMass, parentMass);
                     if (Math.abs(position - tag.beginMass) <= MAX_DISTANCE) {
                         paths.add(tag);
                     }
@@ -76,10 +74,6 @@ public class AKAutomaton {
             int c = AA_INDEX[s.charAt(i)];
             vertex = next[vertex][c];
             if (acceptedPath[vertex] != null || previousAcceptedLink[vertex] >= 0) {
-//                System.err.println(acceptedPath[vertex]);
-//                if (previousAcceptedLink[vertex] >= 0) {
-//                    System.err.println(acceptedPath[previousAcceptedLink[vertex]]);
-//                }
                 return true;
             }
         }
@@ -132,23 +126,17 @@ public class AKAutomaton {
         addPath(ROOT, path, path.getEdges(), 0);
     }
 
-//    StringBuilder builder = new StringBuilder();
-
     private void addPath(int vertex, Path path, Edge[] edges, int pos) {
         if (edges.length == pos) {
             acceptedPath[vertex] = path;
-//            System.err.println(builder + " " + path.beginMass + " " + path.isReversed());
             return;
         }
         for (char[] decoding : edges[pos].getDecodings()) {
             int nextVertex = vertex;
-//            int len = builder.length();
             for (char c : decoding) {
-//                builder.append(c);
                 nextVertex = getNextVertex(nextVertex, c);
             }
             addPath(nextVertex, path, edges, pos + 1);
-//            builder.replace(len, builder.length(), "");
         }
     }
 

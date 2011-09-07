@@ -25,9 +25,11 @@ public class UnmatchedStatistics extends StatisticsGenerator {
             }
             HtmlWriter writer = new HtmlWriter(fileName);
             ArrayList<Integer> ids = database.getUnmatchedIds();
+//            ids.retainAll(ArrayUtil.asList(671));
             UnmatchedScanProcessor processor = new UnmatchedScanProcessor();
             printStatistics(writer, ids, processor);
             writer.close();
+            System.out.println("written successfully to " + fileName);
             System.out.println("done " + processor.getProcessedScansNumber());
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -41,6 +43,9 @@ public class UnmatchedStatistics extends StatisticsGenerator {
 
         protected void preProcess(int id, Collection<Path> paths) {
             bestFromAlign = database.getBestFromAlign(id, paths);
+            if (bestFromAlign == null) {
+                throw new AssertionError("");
+            }
         }
     }
 }

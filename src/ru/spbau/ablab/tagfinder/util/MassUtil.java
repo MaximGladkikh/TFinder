@@ -4,13 +4,14 @@ import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 
 import java.util.Comparator;
 
-public class MassComparator implements Comparator<Double> {
+public class MassUtil implements Comparator<Double> {
     public static final double FIRST_BY_EDGE_ERROR = ConfigReader.getDoubleProperty("FIRST_BY_EDGE_ERROR");
     public static final double ERROR_THRESHOLD = ConfigReader.getDoubleProperty("ERROR_THRESHOLD");
+    public static final Comparator<Double> MASS_COMPARATOR = new MassUtil();
     private static final boolean RELATIVE_COMPARE = ConfigReader.getBooleanProperty("RELATIVE_COMPARE");
     private static final boolean REL_COMPARE_WITHOUT_MASS = ConfigReader.getBooleanProperty("REL_COMPARE_WITHOUT_MASS");
 
-    private MassComparator() {
+    private MassUtil() {
     }
 
     @Override
@@ -49,5 +50,12 @@ public class MassComparator implements Comparator<Double> {
 
     public static boolean sameForDeletion(double mass, double offset) {
         return Math.abs(mass - offset) < 1e-1;
+    }
+
+    public static double convertIonsType(double mass, double parentMass) {
+//        if (Database.ALIGN) {
+//            return parentMass - mass + Database.WATER_MASS;
+//        }
+        return parentMass - mass;
     }
 }

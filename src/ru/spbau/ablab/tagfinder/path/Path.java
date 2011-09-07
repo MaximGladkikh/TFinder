@@ -1,6 +1,5 @@
 package ru.spbau.ablab.tagfinder.path;
 
-import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.TagGenerator;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
@@ -8,7 +7,7 @@ import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
-import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.MassUtil;
 
 import java.util.Comparator;
 
@@ -64,7 +63,7 @@ public class Path implements Comparable<Path> {
     }
 
     public Path getReversed() {
-        return new Path(getReversedEdges(), score, spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, spectrum, !reversed);
+        return new Path(getReversedEdges(), score, MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), spectrum, !reversed);
     }
 
     public double getMass() {
@@ -81,21 +80,21 @@ public class Path implements Comparable<Path> {
         }
         Edge[] edges = getEdges();
         Edge[] reversedEdges = getReversedEdges();
-        isMonoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, edges, -1.);
-        isMonoTag |= spectrumHasPeaks(beginMass, reversedEdges, 1.) || spectrumHasPeaks(spectrum.parentMass - beginMass - getMass() + Database.WATER_MASS, reversedEdges, -1.);
+        isMonoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), edges, -1.);
+        isMonoTag |= spectrumHasPeaks(beginMass, reversedEdges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), reversedEdges, -1.);
         assert length() <= 1 || (TagGenerator.DOUBLE_MASSES || isMonoTag);
         return isMonoTag;
     }
 
     private boolean spectrumHasPeaks(double mass, Edge[] edges, double d) {
         Envelope envelope = spectrum.getClosest(mass);
-        if (MassComparator.compare(envelope.getMass(), mass, MassComparator.ERROR_THRESHOLD * 4) != 0) {
+        if (MassUtil.compare(envelope.getMass(), mass, MassUtil.ERROR_THRESHOLD * 4) != 0) {
             return false;
         }
         for (Edge edge : edges) {
             mass += edge.getMass() * d;
             envelope = spectrum.getClosest(mass);
-            if (MassComparator.compare(mass, envelope.getMass(), MassComparator.ERROR_THRESHOLD * 4) != 0) {
+            if (MassUtil.compare(mass, envelope.getMass(), MassUtil.ERROR_THRESHOLD * 4) != 0) {
                 return false;
             }
             mass = envelope.getMass();
@@ -127,7 +126,7 @@ public class Path implements Comparable<Path> {
         public int compare(Path o1, Path o2) {
             int lengths = o1.compareLengths(o2);
             if (lengths != 0) {
-                return lengths;
+                return -lengths;
             }
             return o1.lexicographicCompare(o2);
         }
@@ -136,7 +135,7 @@ public class Path implements Comparable<Path> {
 
     @Override
     public int compareTo(Path o) {
-        if (StatisticsGenerator.SCORE_BY_LENGTH) {
+        if (TagGenerator.SCORE_BY_LENGTH) {
             return LENGTH_FIRST_COMPARATOR.compare(this, o);
         }
         if (Math.abs(score - o.score) > SCORE_EPS) {
@@ -171,7 +170,7 @@ public class Path implements Comparable<Path> {
     }
 
     public Path append(Edge edge, double score) {
-        return new Path(this, this.score + Math.log(score), edge, beginMass, spectrum);
+        return new Path(this, Math.min(this.score, score), edge, beginMass, spectrum);
     }
 
     private static final Edge[] edgesBuffer = new Edge[TagGenerator.MAX_TAG_LENGTH * 2];

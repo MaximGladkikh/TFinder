@@ -1,5 +1,6 @@
 package ru.spbau.ablab.tagfinder.util;
 
+import edu.ucsd.msalign.spec.id.IdCompEValue;
 import ru.spbau.ablab.tagfinder.Protein;
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.TagGenerator;
@@ -8,7 +9,6 @@ import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
-import ru.spbau.ablab.tagfinder.util.trie.AKAutomaton;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -31,8 +31,10 @@ public class Database {
     private Map<Integer, Protein> sequenceIdToProtein;
     private Map<Integer, Double> idToEValue;
     private Map<Integer, Protein> idToMatch;
+    private Map<Integer, Protein> scanToAlignedProtein;
     private static final double UNIDENTIFIED_THRESHOLD = ConfigReader.getDoubleProperty("UNINDENTIFIED_THRESHOLD");
     private static final Database INSTANCE;
+    private static final String ALIGN_RESULT_TABLE_FILE = ConfigReader.getProperty("ALIGN_RESULT_TABLE_FILE");
 
     static {
         Database database = null;
@@ -56,7 +58,31 @@ public class Database {
         if (ALIGN) {
             scanToSpectrum = scanToVirtualSpectrum;
         }
+        scanToAlignedProtein = getAlignedProteins();
         System.out.printf("Database loaded in %.3fms\n", 1e-3 * (System.currentTimeMillis() - startTime));
+    }
+
+    private Map<Integer, Protein> getAlignedProteins() {
+        HashMap<Integer, Protein> ans = new HashMap<Integer, Protein>();
+        try {
+            FastScanner scanner = new FastScanner(new File(ALIGN_RESULT_TABLE_FILE));
+            for(String s; (s = scanner.nextLine()) != null;) {
+                String[] ss = s.split("\t+");
+                int id = Integer.parseInt(ss[5].split(" +")[2]);
+                String proteinString = ss[ss.length - 5].replace('I', 'L');
+                String proteinName = ss[9];
+                Protein protein = new Protein(proteinString, proteinName);
+                ans.put(id, protein);
+//                System.err.println((protein.parentMass - scanToSpectrum.get(id).parentMass));
+            }
+        } catch (FileNotFoundException e) {
+            throw  new RuntimeException(e);
+        }
+        return ans;
+    }
+
+    public Protein getAlignedProtein(int id) {
+        return scanToAlignedProtein.get(id);
     }
 
     public void setSpectrum(int id, Spectrum spectrum) {
@@ -103,67 +129,68 @@ public class Database {
     }
 
 
-    //    private IdCompEValue comp;
+        private IdCompEValue comp;
     private HashMap<Integer, Pair<Double, Protein>> alignResults;
 
     public Pair<Double, Protein> getBestFromAlign(int id, Collection<Path> paths) {
-        if (alignResults == null) {
+//        if (alignResults == null) {
+//            try {
+//                FastScanner scanner = new FastScanner(new File("result_list"));
+//                alignResults = new HashMap<Integer, Pair<Double, Protein>>();
+//                for (String s; (s = scanner.nextLine()) != null && s.trim().length() > 0; ) {
+//                    String[] ss = s.split("\t+");
+//                    int scanId = Integer.parseInt(ss[5]);
+//                    Protein protein = nameToProtein.get(ss[9]);
+//                    double eValue = Double.parseDouble(ss[ss.length - 3]);
+//                    Double prev = alignResults.get(scanId) == null ? Double.POSITIVE_INFINITY : alignResults.get(scanId).a;
+//                    if (eValue < prev) {
+//                        alignResults.put(scanId, new Pair<Double, Protein>(eValue, protein));
+//                    }
+//                }
+//            } catch (FileNotFoundException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }
+//        return alignResults.get(id);
+        if (comp == null) {
             try {
-                FastScanner scanner = new FastScanner(new File("result_list"));
-                alignResults = new HashMap<Integer, Pair<Double, Protein>>();
-                for (String s; (s = scanner.nextLine()) != null && s.trim().length() > 0; ) {
-                    String[] ss = s.split("\t+");
-                    int scanId = Integer.parseInt(ss[5]);
-                    Protein protein = nameToProtein.get(ss[9]);
-                    double eValue = Double.parseDouble(ss[ss.length - 3]);
-                    Double prev = alignResults.get(scanId) == null ? Double.POSITIVE_INFINITY : alignResults.get(scanId).a;
-                    if (eValue < prev) {
-                        alignResults.put(scanId, new Pair<Double, Protein>(eValue, protein));
-                    }
-                }
-            } catch (FileNotFoundException e) {
+                comp = new IdCompEValue(PROTEIN_DB_PATH, ALIGN_SPECTRA_FILE, 15);
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
-        return alignResults.get(id);
-//        if (comp == null) {
-//            try {
-//                comp = new IdCompEValue(PROTEIN_DB_PATH, ALIGN_SPECTRA_FILE, 15);
-//            } catch (Exception e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
-//        double eValue = Double.POSITIVE_INFINITY;
-//        Protein best = null;
-//        ArrayList<Protein> proteins = new ArrayList<Protein>();
-////        proteins.add(getProteinFromTable(id));
-//        AKAutomaton automaton = new AKAutomaton(paths);
-//        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
-//            if (automaton.acceptsString(entry.getValue().getString())) {
-//                proteins.add(entry.getValue());
-//            }
-//        }
-//        for (Protein protein : proteins) {
-//            try {
-//                System.err.println("starting for " + id + " " + protein.getShortName());
-////                comp.compEValue(id, protein.getShortName());
-//                alignWriter.println(id + " " + protein.getShortName());
-//                alignWriter.flush();
-////                for (int i = 0; i < 3; ++i) {
-////                    for (int j = 0; j < 4; ++j) {
-////                        double value = comp.getEValue(i, j);
-////                        if (value < eValue) {
-////                            eValue = value;
-////                            best = protein;
-////                        }
-////                    }
-////                }
-//            } catch (Exception e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
+        double eValue = Double.POSITIVE_INFINITY;
+        Protein best = null;
+        ArrayList<Protein> proteins = new ArrayList<Protein>();
+//        proteins.add(getProteinFromTable(id));
+        AKAutomaton automaton = new AKAutomaton(paths);
+        for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
+            if (automaton.acceptsString(entry.getValue().getString())) {
+                proteins.add(entry.getValue());
+            }
+        }
+        for (Protein protein : proteins) {
+            try {
+                System.err.println("starting for " + id + " " + protein.getShortName());
+                comp.compEValue(id, protein.getShortName());
+                alignWriter.println(id + " " + protein.getShortName());
+                alignWriter.flush();
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 0; j < 4; ++j) {
+                        double value = comp.getEValue(i, j);
+                        if (value > 1e-50 && value < eValue) {
+                            eValue = value;
+                            best = protein;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        System.err.println("id = " + id + " evalue = " + eValue);
 //        return null;
-//        return new Pair<Double, Protein>(eValue, best);
+        return new Pair<Double, Protein>(eValue, best);
     }
 
     public Protein getProteinFromTable(int id) {
@@ -230,6 +257,7 @@ public class Database {
                 lastMatchedProteins.add(entry.getKey());
             }
         }
+//        System.err.println(lastMatchedProteins);
         return lastMatchedProteins.size();
     }
 
@@ -284,7 +312,7 @@ public class Database {
                     continue;
                 }
                 Envelope closestExp = scanToSpectrum.get(id).getClosest(mass);
-                mass = strings[4].equals("B") ? mass : (parentMass - mass + Database.WATER_MASS);
+                mass = strings[4].equals("B") ? mass : (MassUtil.convertIonsType(mass, parentMass));
                 envelopes.add(new Envelope(mass, closestExp.score, closestExp.intensity));
             }
             ans.put(id, new Spectrum(id, envelopes.toArray(new Envelope[envelopes.size()]), parentMass));

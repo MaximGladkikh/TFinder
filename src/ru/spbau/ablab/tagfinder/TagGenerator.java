@@ -8,7 +8,7 @@ import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.Database;
-import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
@@ -22,6 +22,8 @@ public class TagGenerator {
     public static int MIN_TAG_LENGTH = ConfigReader.getIntProperty("MIN_TAG_LENGTH");
     public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBooleanProperty("EDGE_OF_TWO_AA");
     public static final boolean EDGE_OF_THREE_AA = ConfigReader.getBooleanProperty("EDGE_OF_THREE_AA");
+    private static final boolean GENERATE_ALL_TAGS = ConfigReader.getBooleanProperty("GENERATE_ALL_TAGS");
+    public static final boolean SCORE_BY_LENGTH = !GENERATE_ALL_TAGS && ConfigReader.getBooleanProperty("SCORE_BY_LENGTH");
 
     public static final char[] AA_LET;
     public static final double[] AA_MONO_MASS;
@@ -90,7 +92,7 @@ public class TagGenerator {
     private static boolean findEdge(ArrayList<GapEdge> edges, double mass, String decoding) {
         boolean found = false;
         for (GapEdge edge : edges) {
-            if (MassComparator.compare(edge.getMass(), mass) == 0) {
+            if (MassUtil.compare(edge.getMass(), mass) == 0) {
                 edge.addDecoding(decoding);
                 found = true;
                 break;
@@ -121,10 +123,15 @@ public class TagGenerator {
 
     public static ArrayList<Path> getTopTags(Database database, int id, int n) {
         ArrayList<Path> ans = new ArrayList<Path>();
-        for (int i = 0; i < RATIO_THRESHOLDS.length && ans.size() < n; ++i) {
-            fillTopTags(database, id, n, ans, i, false);
-            if (DOUBLE_MASSES && ans.size() < n) {
-                fillTopTags(database, id, n, ans, i, true);
+        if (GENERATE_ALL_TAGS) {
+            assert RATIO_THRESHOLDS[RATIO_THRESHOLDS.length - 1] == 1;
+            fillTopTags(database, id, n, ans, RATIO_THRESHOLDS.length - 1, DOUBLE_MASSES);
+        } else {
+            for (int i = 0; i < RATIO_THRESHOLDS.length && ans.size() < n; ++i) {
+                fillTopTags(database, id, n, ans, i, false);
+                if (DOUBLE_MASSES && ans.size() < n) {
+                    fillTopTags(database, id, n, ans, i, true);
+                }
             }
         }
         applyReplaceRules(database, id, ans);
@@ -142,13 +149,13 @@ public class TagGenerator {
                     double needMass = mass + AA_EDGES[rule.b.a].getMass();
                     Spectrum spectrum = database.getSpectrum(id);
                     Envelope closest = spectrum.getClosest(needMass);
-                    Envelope reversedClosest = spectrum.getClosest(spectrum.parentMass - needMass + Database.WATER_MASS);
+                    Envelope reversedClosest = spectrum.getClosest(MassUtil.convertIonsType(needMass, spectrum.parentMass));
                     double mass1 = closest.getMass();
-                    double mass2 = spectrum.parentMass - reversedClosest.getMass() + Database.WATER_MASS;
+                    double mass2 = MassUtil.convertIonsType(reversedClosest.getMass(), spectrum.parentMass);
                     if (Math.abs(mass1 - needMass) > Math.abs(mass2 - needMass)) {
                         mass1 = mass2;
                     }
-                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < MassComparator.ERROR_THRESHOLD * 2) {//MassComparator.compare(closest.getMass(), needMass) == 0) {
+                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < MassUtil.ERROR_THRESHOLD * 2) {//MassUtil.compare(closest.getMass(), needMass) == 0) {
                         resultEdges.add(AA_EDGES[rule.b.a]);
                         resultEdges.add(AA_EDGES[rule.b.b]);
                         mass += AA_EDGES[rule.a].getMass();
@@ -174,7 +181,7 @@ public class TagGenerator {
             }
             ++pathN;
             for (Path stored : ans) {
-                if (stored.canBeReversedTo(path)) {
+                if (stored.canBeReversedTo(path)/* || path.toString().contains(stored.toString()) || path.getReversed().toString().contains(stored.toString())*/) {
                     continue paths;
                 }
             }
@@ -236,9 +243,6 @@ public class TagGenerator {
                 bestScore.put(path, path.score);
             }
         }
-        if (path.toString().equals("SSA")) {
-            System.err.print("");
-        }
         if (path.length() >= MAX_TAG_LENGTH) {
             return;
         }
@@ -258,7 +262,7 @@ public class TagGenerator {
 
     private static void findEdges(Spectrum spectrum, Spectrum reversedSpectrum, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, final double currentMass, Edge edge, boolean[] usedEnvelopes, double minScore) {
         double needMass = currentMass + edge.getMass();
-        for (int next = spectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass()); next < spectrum.envelopes.length && MassComparator.edgeMatches(currentMass, spectrum.envelopes[next].getMass(), edge.getMass()); ++next) {
+        for (int next = spectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass()); next < spectrum.envelopes.length && MassUtil.edgeMatches(currentMass, spectrum.envelopes[next].getMass(), edge.getMass()); ++next) {
             Envelope nextEnvelope = spectrum.envelopes[next];
             if (usedEnvelopes[next] || nextEnvelope.score < minScore) {
                 continue;
@@ -267,7 +271,7 @@ public class TagGenerator {
             addTags(spectrum, reversedSpectrum, next, newPath, bestScore, peaks, parentMassCorrection, usedEnvelopes, minScore);
         }
         if (doubleMasses) {
-            for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), parentMassCorrection); next < reversedSpectrum.envelopes.length && MassComparator.edgeMatches(currentMass, reversedSpectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection); ++next) {
+            for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), parentMassCorrection); next < reversedSpectrum.envelopes.length && MassUtil.edgeMatches(currentMass, reversedSpectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection); ++next) {
                 Envelope nextEnvelope = reversedSpectrum.envelopes[next];
                 if (usedEnvelopes[spectrum.envelopes.length - 1 - next] || nextEnvelope.score < minScore) {
                     continue;

@@ -5,9 +5,9 @@ import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.*;
-import ru.spbau.ablab.tagfinder.util.trie.AKAutomaton;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import static ru.spbau.ablab.tagfinder.TagGenerator.AA_LET;
 import static ru.spbau.ablab.tagfinder.TagGenerator.AA_MONO_MASS;
@@ -32,13 +32,42 @@ public class Protein {
     private static final double MAX_ACCEPTED_DISTANCE = ConfigReader.getDoubleProperty("MAX_ACCEPTED_DISTANCE");
 
     public Protein(String s, String name) {
-        protein = s;
+        protein = s = clearFromTruncated(s);
+//        System.err.println(s);
+        if (s.indexOf('I') >= 0) {
+            throw new AssertionError();
+        }
+        parentMass = getStringMass(s) + Database.WATER_MASS;
         masses = getMasses(s);
-        parentMass = getStringMass(s);// + Database.WATER_MASS;
         this.name = name;
         revProtein = new StringBuilder(s).reverse().toString();
+//        System.err.println("name=" + name + " , index=" + name.indexOf("NP_"));
         String subName = name.substring(name.indexOf("NP_"));
         shortName = subName.substring(0, subName.indexOf('|'));
+    }
+
+    private String clearFromTruncated(String s) {
+        int l = 0;
+        int r = s.length();
+        for (int i = 0; i + 3 < s.length(); ++i) {
+           char c = s.charAt(i);
+           if (c == '(') {
+               break;
+           }
+           if (c == '.') {
+               l = i + 1;
+           }
+        }
+        for (int i = s.length() - 1; i > l && i > 3; --i) {
+            char c = s.charAt(i);
+            if (c == ']') {
+                break;
+            }
+            if (c == '.') {
+                r = i;
+            }
+        }
+        return s.substring(l, r);
     }
 
     public String getString() {
@@ -63,23 +92,55 @@ public class Protein {
 //		for (int i = 0; i < s.length(); ++i) {
 //			ans[i + 1] = ans[i] + AA_MASS_ARRAY[s.charAt(i)];
 //		}
-        double[] ans = new double[s.length() * 2 + 2];
+//        double[] ans = new double[s.length() * 2 + 2];
+        ArrayList<Double> list = new ArrayList<Double>();
+        list.add(0.);
+        list.add(parentMass);
+        double sum = 0;
         for (int i = 0; i < s.length(); ++i) {
-            ans[i + 1] = ans[i] + AA_MASS_ARRAY[s.charAt(i)];
+            char c = s.charAt(i);
+            if (Character.isLetter(c)) {
+                sum += TagGenerator.AA_MONO_MASS[AKAutomaton.AA_INDEX[c]];
+            } else if (c == '[') {
+//                System.err.println(string.substring(i));
+                StringBuilder builder = new StringBuilder();
+                for (++i; s.charAt(i) != ']'; ++i) {
+                    builder.append(s.charAt(i));
+                }
+                sum += Double.parseDouble(builder.toString());
+            }
+            list.add(sum);
+            list.add(parentMass - sum);
         }
-        double sum = Database.WATER_MASS;
-        ans[s.length() + 1] = sum;
-        for (int i = 0; i < s.length(); ++i) {
-            ans[s.length() + 2 + i] = sum += AA_MASS_ARRAY[s.charAt(s.length() - 1 - i)];
+        Collections.sort(list);
+        double [] ans = new double[list.size()];
+        for (int i = 0; i < ans.length; ++i) {
+            ans[i] = list.get(i);
         }
-        Arrays.sort(ans);
+//        double sum = Database.WATER_MASS;
+//        ans[s.length() + 1] = sum;
+//        for (int i = 0; i < s.length(); ++i) {
+//            ans[s.length() + 2 + i] = sum += AA_MASS_ARRAY[s.charAt(s.length() - 1 - i)];
+//        }
+//        Arrays.sort(ans);
         return ans;
     }
 
-    public static double getStringMass(String s) {
+    public static double getStringMass(String string) {
         double sum = 0;
-        for (char c : s.toCharArray()) {
-            sum += TagGenerator.AA_MONO_MASS[AKAutomaton.AA_INDEX[c]];
+        char[] s = string.toCharArray();
+        for (int i = 0; i < s.length; ++i) {
+            char c = s[i];
+            if (Character.isLetter(c)) {
+                sum += TagGenerator.AA_MONO_MASS[AKAutomaton.AA_INDEX[c]];
+            } else if (c == '[') {
+//                System.err.println(string.substring(i));
+                StringBuilder builder = new StringBuilder();
+                for (++i; s[i] != ']'; ++i) {
+                    builder.append(s[i]);
+                }
+                sum += Double.parseDouble(builder.toString());
+            }
         }
         return sum;
     }
@@ -92,15 +153,23 @@ public class Protein {
 
     public int getMaxMatch(Path path) {
         bestAbs = Double.POSITIVE_INFINITY;
-        return Math.max(getMaxMatch(path.getEdges(), path.beginMass, path.length()), getMaxMatch(path.getReversedEdges(), parentMass - path.beginMass - path.getMass() + Database.WATER_MASS, path.length()));
+        return Math.max(getMaxMatch(path.getEdges(), path.beginMass, path.length()), getMaxMatch(path.getReversedEdges(), MassUtil.convertIonsType(path.beginMass + path.getMass(), parentMass), path.length()));
     }
 
     private int getMaxMatch(Edge[] edges, double beginMass, int length) {
         int maxScore = 0;
         double mass = 0;
         for (int i = 0; i <= protein.length(); ++i) {
-            double abs = Math.abs(beginMass - mass);
-            if (abs > MAX_ACCEPTED_DISTANCE) {
+            if (i < protein.length() && protein.charAt(i) == '[') {
+                StringBuilder builder = new StringBuilder();
+                for (++i; protein.charAt(i) != ']'; ++i) {
+                    builder.append(protein.charAt(i));
+                }
+                mass += Double.parseDouble(builder.toString());
+                continue;
+            }
+            double diff = beginMass - mass;
+            if (diff > MAX_ACCEPTED_DISTANCE) {
                 continue;
             }
             int pos = i;
@@ -111,8 +180,16 @@ public class Protein {
                 for (char[] decoding : edges[j].getDecodings()) {
                     boolean ok = true;
                     len = decoding.length;
-                    for (int k = 0; k < decoding.length && pos + decoding.length <= protein.length(); ++k) {
-                        if (protein.charAt(pos + k) != decoding[k]) {
+                    int addDueToNonAInString = 0;
+                    for (int k = 0; k < decoding.length && pos + decoding.length + addDueToNonAInString <= protein.length(); ++k) {
+                        while (pos + k + addDueToNonAInString < protein.length() && !Character.isLetter(protein.charAt(pos + k + addDueToNonAInString))) {
+                            ++addDueToNonAInString;
+                        }
+                        if (pos + k + addDueToNonAInString >= protein.length()) {
+                            ok = false;
+                            break;
+                        }
+                        if (protein.charAt(pos + k + addDueToNonAInString) != decoding[k]) {
                             ok = false;
                             break;
                         }
@@ -126,8 +203,9 @@ public class Protein {
                 pos += len;
             }
             maxScore = Math.max(matchedEdges, maxScore);
-            if (maxScore == length) {
-                bestAbs = Math.min(bestAbs, abs);
+            if (matchedEdges == length && Math.abs(bestAbs) > Math.abs(diff)) {
+                bestAbs = diff;
+//                bestAbs = Math.min(bestAbs, abs);
             }
             if (i < protein.length()) {
                 mass += AA_MONO_MASS[AKAutomaton.AA_INDEX[protein.charAt(i)]];
@@ -145,7 +223,7 @@ public class Protein {
         for (Envelope envelope : spectrum.envelopes) {
             double needMass = envelope.getMass() * mult + shift;
             int index = ArrayUtil.getClosestIndex(masses, needMass);
-            if (MassComparator.sameForDeletion(needMass, masses[index])) {
+            if (MassUtil.sameForDeletion(needMass, masses[index])) {
                 ++ans;
             }
         }

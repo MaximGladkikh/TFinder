@@ -1,7 +1,7 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.MassComparator;
+import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 import java.io.File;
@@ -9,7 +9,7 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-import static ru.spbau.ablab.tagfinder.util.MassComparator.FIRST_BY_EDGE_ERROR;
+import static ru.spbau.ablab.tagfinder.util.MassUtil.FIRST_BY_EDGE_ERROR;
 
 public class Spectrum {
     public static final boolean REMOVE_DUPLICATES = ConfigReader.getBooleanProperty("REMOVE_DUPLICATES");
@@ -88,11 +88,11 @@ public class Spectrum {
     private int getFirstMatchingCorrectedEnvelopeIndex(double firstMass, double needMass, double edgeMass, double delta) {
         assert Math.abs(firstMass + edgeMass - needMass) < 1e-12;
         int index = getClosestIndex(needMass);
-        while (index >= 0 && MassComparator.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
+        while (index >= 0 && MassUtil.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
             --index;
         }
         ++index;
-        if (index >= envelopes.length || !MassComparator.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
+        if (index >= envelopes.length || !MassUtil.edgeMatches(firstMass, envelopes[index].getMass(delta), edgeMass)) {
             return envelopes.length;
         }
         return index;
@@ -122,7 +122,7 @@ public class Spectrum {
 
     private int goSide(double mass, int ans, int add) {
         for (int it = ans; it < envelopes.length && it >= 0; it += add) {
-            boolean toBreak = MassComparator.compare(envelopes[ans].getMass(), envelopes[it].getMass()) != 0;
+            boolean toBreak = MassUtil.compare(envelopes[ans].getMass(), envelopes[it].getMass()) != 0;
             if (Math.abs(envelopes[it].getMass() - mass) < Math.abs(envelopes[ans].getMass() - mass)) {
                 ans = it;
             }
