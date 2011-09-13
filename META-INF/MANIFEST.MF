@@ -1,3 +1,4 @@
 Manifest-Version: 1.0
-Main-Class: ru.spbau.ablab.tagfinder.UnmatchedStatistics
+Class-Path: msalign.jar
+Main-Class: ru.spbau.ablab.tagfinder.TableParser
 

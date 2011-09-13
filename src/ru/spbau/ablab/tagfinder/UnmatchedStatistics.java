@@ -1,8 +1,8 @@
 package ru.spbau.ablab.tagfinder;
 
+import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 
 import java.io.FileNotFoundException;
@@ -42,7 +42,7 @@ public class UnmatchedStatistics extends StatisticsGenerator {
         }
 
         protected void preProcess(int id, Collection<Path> paths) {
-            bestFromAlign = database.getBestFromAlign(id, paths);
+            bestFromAlign = database.getProteinDb().getBestFromAlign(id, paths);
             if (bestFromAlign == null) {
                 throw new AssertionError("");
             }

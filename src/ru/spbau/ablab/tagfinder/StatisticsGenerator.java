@@ -1,9 +1,9 @@
 package ru.spbau.ablab.tagfinder;
 
+import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
@@ -15,7 +15,6 @@ import java.util.List;
 
 public class StatisticsGenerator implements Runnable {
     public static final boolean USE_DEFAULT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME");
-    public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
     public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
     public static final String OUTPUT_FILE = ConfigReader.getProperty("OUTPUT_FILE");
 
@@ -99,7 +98,7 @@ public class StatisticsGenerator implements Runnable {
         }
 
         public boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags) {
-            List<Path> paths = TagGenerator.getTopTags(database, id, MAX_PATHS);
+            List<Path> paths = TagGenerator.getTopTags(id, MAX_PATHS);
             if (skip && paths.isEmpty()) {
                 return false;
             }
@@ -107,9 +106,8 @@ public class StatisticsGenerator implements Runnable {
             preProcess(id, paths);
             writer.printOpenTag("tr");
             writer.printThTaggedValue(id);
-            writer.printThTaggedValue(database.getSpectrum(id).envelopes.length);
-            Protein protein = bestFromAlign == null ? database.getAlignedProtein(id) : bestFromAlign.b; // from align version
-//            Protein protein = bestFromAlign == null ? database.getProteinFromTable(id) : bestFromAlign.b; //from Fasta version
+            writer.printThTaggedValue(database.getSpectraDb().getSpectrum(id).envelopes.length);
+            Protein protein = bestFromAlign == null ? database.getProteinPredictedByAlign(id) : bestFromAlign.b;
             writer.printThTaggedValue(TagGenerator.getLastRatio());
             if (dontMatch) {
                 writer.printTaggedValue("td", "?");
@@ -161,9 +159,9 @@ public class StatisticsGenerator implements Runnable {
                 boolean notPrint = false;
                 Double bestAbs = null;
                 if (protein != null && protein.contains(path)) {
-//                    System.err.println(path);
+//                    System.err.println(path + " " + protein.getString());
                     if (printShifts) {
-                        bestAbs = protein.getBestLastAlignment();
+                        bestAbs = protein.getLastBestShift();
                     }
                     if (!foundFirst) {
                         writer.printTagSuffix("style=\"color:red;font-weight:bold\"");
@@ -198,7 +196,7 @@ public class StatisticsGenerator implements Runnable {
                 }
                 ++count[pathN][path.length()];
                 if (!notPrint) {
-                    writer.println(path + " " + (protein == null ? 0 : protein.getMaxMatch(path)) + " " + (bestAbs == null ? "" : String.format("%.2f", bestAbs)));
+                    writer.println(path + " " + (protein == null ? 0 : protein.getMaxMatch(path)) + " " + (bestAbs == null ? "" : String.format("%.2f", bestAbs)) + " " + String.format("%.2f", path.beginMass));
                     writer.printCloseTag("span");
                 }
                 writer.printCloseTag("div");
@@ -211,30 +209,27 @@ public class StatisticsGenerator implements Runnable {
         }
 
         protected void printMatchedProteinsStats(HtmlWriter writer, int id) {
-//            System.err.println(bestFromAlign);
-            Protein proteinFromTable = bestFromAlign == null ? database.getProteinFromTable(id) : bestFromAlign.b;
-            if (proteinFromTable == null) {
-                proteinFromTable = database.getProteinFromTable(id);
-            }
-            boolean predictedFound = database.getLastMatchedProteins().contains(proteinFromTable.getName());
+            Protein proteinFromTable = bestFromAlign == null ? database.getProteinPredictedByAlign(id) : bestFromAlign.b;
+            boolean predictedFound = database.getProteinDb().getLastMatchedProteins().contains(proteinFromTable.getFullname());
             writer.printTaggedValue("td", predictedFound ? "+" : "-");
             if (predictedFound) {
                 ++predictedProteinFound;
             }
-            boolean matchesAlign = proteinFromTable.equals(database.getProtein(id));
+            Protein bestMatch = database.getBestMatch(id);
+            boolean matchesAlign = proteinFromTable.getFullname().equals(bestMatch == null ? null : bestMatch.getFullname());
             if (matchesAlign) {
                 ++matchedAlign;
             }
             writer.printOpenTag("td");
-            writer.printTaggedValue("div", database.getProteinShortName(id), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
-            writer.printTaggedValue("div", proteinFromTable.getShortName());
+            writer.printTaggedValue("div", bestMatch == null ? null : bestMatch.getName(), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
+            writer.printTaggedValue("div", proteinFromTable.getName());
             writer.printCloseTag("td");
         }
     }
 
 
     protected void printProteinDBMatches(HtmlWriter writer, Collection<Path> paths) {
-        writer.printThTaggedValue(database.getMatchedProteinsNumber(paths));
+        writer.printThTaggedValue(database.getProteinDb().getMatchedProteinsNumber(paths));
     }
 
     private String getOutputFilename() {

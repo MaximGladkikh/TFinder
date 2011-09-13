@@ -1,7 +1,5 @@
 package ru.spbau.ablab.tagfinder.util;
 
-import ru.spbau.ablab.tagfinder.StatisticsGenerator;
-
 import java.util.ArrayList;
 import java.util.List;
 

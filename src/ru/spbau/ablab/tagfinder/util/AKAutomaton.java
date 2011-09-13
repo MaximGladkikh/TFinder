@@ -2,23 +2,15 @@ package ru.spbau.ablab.tagfinder.util;
 
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
+import static ru.spbau.ablab.tagfinder.database.Database.*;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 
-import static ru.spbau.ablab.tagfinder.TagGenerator.*;
-
 public class AKAutomaton {
     private static final double MAX_DISTANCE = ConfigReader.getDoubleProperty("MAX_DISTANCE");
     private static final short ROOT = 0;
-    public static final int[] AA_INDEX = new int[Character.MAX_VALUE];
-
-    static {
-        for (int i = 0; i < ALPHABET_SIZE; ++i) {
-            AA_INDEX[AA_LET[i]] = i;
-        }
-    }
 
     private int[][] next;
     private Path[] acceptedPath;

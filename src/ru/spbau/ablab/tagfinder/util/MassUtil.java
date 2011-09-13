@@ -1,7 +1,5 @@
 package ru.spbau.ablab.tagfinder.util;
 
-import ru.spbau.ablab.tagfinder.StatisticsGenerator;
-
 import java.util.Comparator;
 
 public class MassUtil implements Comparator<Double> {
@@ -10,6 +8,7 @@ public class MassUtil implements Comparator<Double> {
     public static final Comparator<Double> MASS_COMPARATOR = new MassUtil();
     private static final boolean RELATIVE_COMPARE = ConfigReader.getBooleanProperty("RELATIVE_COMPARE");
     private static final boolean REL_COMPARE_WITHOUT_MASS = ConfigReader.getBooleanProperty("REL_COMPARE_WITHOUT_MASS");
+    public static final double MASS_EPS = ConfigReader.getDoubleProperty("MASS_EPS");
 
     private MassUtil() {
     }
@@ -19,14 +18,22 @@ public class MassUtil implements Comparator<Double> {
         return compare(o1.doubleValue(), o2.doubleValue());
     }
 
-    public static int compare(double d1, double d2, double EPSILON) {
-        if (RELATIVE_COMPARE && (d1 + d2) * EPSILON > Math.abs(d1 - d2)) {
+    public static int compare(double d1, double d2, double errorThreshold) {
+        if (RELATIVE_COMPARE && (d1 + d2) * errorThreshold > Math.abs(d1 - d2)) {
             return 0;
-        } else if (!RELATIVE_COMPARE && StatisticsGenerator.MASS_EPS > Math.abs(d1 - d2)) {
+        } else if (!RELATIVE_COMPARE && MASS_EPS > Math.abs(d1 - d2)) {
             return 0;
         }
         return d1 < d2 ? -1 : 1;
 
+    }
+
+    public static boolean same(double d1, double d2, double epsilon) {
+        return compare(d1, d2, epsilon) == 0;
+    }
+
+    public static boolean same(double d1, double d2) {
+        return compare(d1, d2, ERROR_THRESHOLD) == 0;
     }
 
     public static int compare(double d1, double d2) {

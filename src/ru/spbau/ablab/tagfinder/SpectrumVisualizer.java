@@ -1,8 +1,8 @@
 package ru.spbau.ablab.tagfinder;
 
+import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 
 import javax.swing.*;

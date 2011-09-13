@@ -13,7 +13,7 @@ import static ru.spbau.ablab.tagfinder.util.MassUtil.FIRST_BY_EDGE_ERROR;
 
 public class Spectrum {
     public static final boolean REMOVE_DUPLICATES = ConfigReader.getBooleanProperty("REMOVE_DUPLICATES");
-    public final Envelope[] envelopes;
+    public Envelope[] envelopes;
     public final int id;
     public final double parentMass;
     public final double massEps;
@@ -33,6 +33,10 @@ public class Spectrum {
         this.envelopes = unique(envelopes);
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
         scanner.close();
+    }
+
+    public Envelope[] getEnvelopes() {
+        return envelopes;
     }
 
     private Envelope[] unique(Envelope[] envelopes) {
@@ -57,6 +61,11 @@ public class Spectrum {
         this.envelopes = envelopes;
         this.parentMass = parentMass;
         massEps = FIRST_BY_EDGE_ERROR * parentMass;
+        Arrays.sort(envelopes);
+    }
+
+    public void setEnvelopes(Envelope[] envelopes) {
+        this.envelopes = envelopes;
         Arrays.sort(envelopes);
     }
 

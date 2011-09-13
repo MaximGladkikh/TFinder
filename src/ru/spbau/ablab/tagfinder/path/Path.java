@@ -6,9 +6,9 @@ import ru.spbau.ablab.tagfinder.path.edges.Edge;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 
 public class Path implements Comparable<Path> {
@@ -39,7 +39,7 @@ public class Path implements Comparable<Path> {
         edges = 1 + (parent == null ? 0 : parent.edges);
         this.parent = parent;
         this.beginMass = beginMass;
-        assert Database.ALIGN || beginMass + getMass() <= spectrum.parentMass;
+//        assert Database.ALIGN || beginMass + getMass() <= spectrum.parentMass;
     }
 
     public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
@@ -74,6 +74,36 @@ public class Path implements Comparable<Path> {
         return mass;
     }
 
+    public ArrayList<Double> getAllPossibleShifts() {
+        ArrayList<Double> ans = new ArrayList<Double>();
+        for (Envelope envelope : spectrum.getEnvelopes()) {
+//            if (toString().equals("VFS") && Math.abs(envelope.getMass() - 4808) > 5) {
+//                continue;
+//            }
+            double mass = envelope.getMass();
+            if (checkDirection(spectrum, mass, getEdges(), 1)) {
+                ans.add(envelope.getMass());
+            }
+            if (checkDirection(spectrum, mass, getReversedEdges(), -1)) {
+                ans.add(-envelope.getMass());
+            }
+        }
+        return  ans;
+    }
+
+    private boolean checkDirection(Spectrum spectrum, double mass, Edge[] edges, double direction) {
+        for (Edge edge : edges)  {
+            double needMass = mass + edge.getMass() * direction;
+            Envelope nextEnvelope = spectrum.getClosest(needMass);
+            if (MassUtil.compare(needMass, nextEnvelope.getMass(), 40e-6 * needMass) != 0) {
+//                System.err.println(edge + " : " + mass + " " + needMass + " " + nextEnvelope.getMass());
+                return false;
+            }
+            mass = nextEnvelope.getMass();
+        }
+        return true;
+    }
+
     public boolean isMonoTag() {
         if (isMonoTag != null) {
             return isMonoTag;
@@ -82,17 +112,17 @@ public class Path implements Comparable<Path> {
         Edge[] reversedEdges = getReversedEdges();
         isMonoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), edges, -1.);
         isMonoTag |= spectrumHasPeaks(beginMass, reversedEdges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), reversedEdges, -1.);
-        assert length() <= 1 || (TagGenerator.DOUBLE_MASSES || isMonoTag);
+//        assert length() <= 1 || (TagGenerator.DOUBLE_MASSES || isMonoTag);
         return isMonoTag;
     }
 
-    private boolean spectrumHasPeaks(double mass, Edge[] edges, double d) {
+    private boolean spectrumHasPeaks(double mass, Edge[] edges, double direction) {
         Envelope envelope = spectrum.getClosest(mass);
         if (MassUtil.compare(envelope.getMass(), mass, MassUtil.ERROR_THRESHOLD * 4) != 0) {
             return false;
         }
         for (Edge edge : edges) {
-            mass += edge.getMass() * d;
+            mass += edge.getMass() * direction;
             envelope = spectrum.getClosest(mass);
             if (MassUtil.compare(mass, envelope.getMass(), MassUtil.ERROR_THRESHOLD * 4) != 0) {
                 return false;

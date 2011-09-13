@@ -1,5 +1,6 @@
 package ru.spbau.ablab.tagfinder;
 
+import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.path.edges.AAEdge;
 import ru.spbau.ablab.tagfinder.path.edges.Edge;
@@ -7,14 +8,17 @@ import ru.spbau.ablab.tagfinder.path.edges.GapEdge;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
-import ru.spbau.ablab.tagfinder.util.io.FastScanner;
-import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
+import static ru.spbau.ablab.tagfinder.database.Database.*;
+
+@SuppressWarnings("unchecked")
 public class TagGenerator {
     public static boolean DOUBLE_MASSES = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
     private static boolean doubleMasses = DOUBLE_MASSES;
@@ -25,35 +29,22 @@ public class TagGenerator {
     private static final boolean GENERATE_ALL_TAGS = ConfigReader.getBooleanProperty("GENERATE_ALL_TAGS");
     public static final boolean SCORE_BY_LENGTH = !GENERATE_ALL_TAGS && ConfigReader.getBooleanProperty("SCORE_BY_LENGTH");
 
-    public static final char[] AA_LET;
-    public static final double[] AA_MONO_MASS;
-    public static final int ALPHABET_SIZE = 19;
-
     private static final AAEdge[] AA_EDGES;
     private static final GapEdge[] GAP2_EDGES;
     private static final GapEdge[] GAP3_EDGES;
     private static final Edge[][] EDGES;
 
-    private static final ArrayList<Pair<Integer, Pair<Integer, Integer>>> replaceRules = new ArrayList<Pair<Integer, Pair<Integer, Integer>>>();
-
-    private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
+    private static boolean edgeWasAdded(ArrayList<GapEdge> edges, double mass, String decoding) {
+        for (GapEdge edge : edges) {
+            if (MassUtil.compare(edge.getMass(), mass) == 0) {
+                edge.addDecoding(decoding);
+                return true;
+            }
+        }
+        return false;
+    }
 
     static {
-        @SuppressWarnings("unchecked")
-        ComparablePair<Double, Character>[] acids = new ComparablePair[ALPHABET_SIZE];
-        FastScanner scanner = new FastScanner(MASS_LIST);
-        for (int i = 0; i < acids.length; ++i) {
-            char c = scanner.nextToken().charAt(0);
-            double mass = scanner.nextDouble();
-            acids[i] = new ComparablePair<Double, Character>(mass, c);
-        }
-        Arrays.sort(acids);
-        AA_LET = new char[ALPHABET_SIZE];
-        AA_MONO_MASS = new double[ALPHABET_SIZE];
-        for (int i = 0; i < acids.length; ++i) {
-            AA_LET[i] = acids[i].b;
-            AA_MONO_MASS[i] = acids[i].a;
-        }
         AA_EDGES = new AAEdge[ALPHABET_SIZE];
         ArrayList<GapEdge> gap2Edges = new ArrayList<GapEdge>();
         ArrayList<GapEdge> gap3Edges = new ArrayList<GapEdge>();
@@ -62,13 +53,13 @@ public class TagGenerator {
             for (int j = 0; j < ALPHABET_SIZE; ++j) {
                 double mass = AA_MONO_MASS[i] + AA_MONO_MASS[j];
                 String decoding = "" + AA_LET[i] + AA_LET[j];
-                if (!findEdge(gap2Edges, mass, decoding)) {
+                if (!edgeWasAdded(gap2Edges, mass, decoding)) {
                     gap2Edges.add(new GapEdge(mass, decoding));
                 }
                 for (int k = 0; k < ALPHABET_SIZE; ++k) {
                     mass = AA_MONO_MASS[i] + AA_MONO_MASS[j] + AA_MONO_MASS[k];
                     decoding = "" + AA_LET[i] + AA_LET[j] + AA_LET[k];
-                    if (!findEdge(gap3Edges, mass, decoding)) {
+                    if (!edgeWasAdded(gap3Edges, mass, decoding)) {
                         gap3Edges.add(new GapEdge(mass, decoding));
                     }
                 }
@@ -77,28 +68,20 @@ public class TagGenerator {
         GAP2_EDGES = gap2Edges.toArray(new GapEdge[gap2Edges.size()]);
         GAP3_EDGES = gap3Edges.toArray(new GapEdge[gap3Edges.size()]);
         EDGES = EDGE_OF_TWO_AA ? (EDGE_OF_THREE_AA ? new Edge[][]{AA_EDGES, GAP2_EDGES, GAP3_EDGES} : new Edge[][]{AA_EDGES, GAP2_EDGES}) : new Edge[][]{AA_EDGES};
+    }
 
+    private static final ArrayList<Pair<Integer, Pair<Integer, Integer>>> replaceRules = new ArrayList<Pair<Integer, Pair<Integer, Integer>>>();
+
+    static {
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
             for (int j = 0; j < ALPHABET_SIZE; ++j) {
                 for (int k = 0; k < ALPHABET_SIZE; ++k) {
-                    if (Math.abs(AA_MONO_MASS[i] - AA_MONO_MASS[j] - AA_MONO_MASS[k]) < 1e-1) {
+                    if (MassUtil.same(AA_MONO_MASS[i], AA_MONO_MASS[j] + AA_MONO_MASS[k])) {
                         replaceRules.add(new Pair<Integer, Pair<Integer, Integer>>(i, new Pair<Integer, Integer>(j, k)));
                     }
                 }
             }
         }
-    }
-
-    private static boolean findEdge(ArrayList<GapEdge> edges, double mass, String decoding) {
-        boolean found = false;
-        for (GapEdge edge : edges) {
-            if (MassUtil.compare(edge.getMass(), mass) == 0) {
-                edge.addDecoding(decoding);
-                found = true;
-                break;
-            }
-        }
-        return found;
     }
 
     private static final double[] RATIO_THRESHOLDS;
@@ -121,7 +104,8 @@ public class TagGenerator {
         doubleMasses = b;
     }
 
-    public static ArrayList<Path> getTopTags(Database database, int id, int n) {
+    public static ArrayList<Path> getTopTags(int id, int n) {
+        Database database = Database.getInstance();
         ArrayList<Path> ans = new ArrayList<Path>();
         if (GENERATE_ALL_TAGS) {
             assert RATIO_THRESHOLDS[RATIO_THRESHOLDS.length - 1] == 1;
@@ -147,7 +131,7 @@ public class TagGenerator {
             for (Edge edge : edges) {
                 for (Pair<Integer, Pair<Integer, Integer>> rule : replaceRules) {
                     double needMass = mass + AA_EDGES[rule.b.a].getMass();
-                    Spectrum spectrum = database.getSpectrum(id);
+                    Spectrum spectrum = database.getSpectraDb().getSpectrum(id);
                     Envelope closest = spectrum.getClosest(needMass);
                     Envelope reversedClosest = spectrum.getClosest(MassUtil.convertIonsType(needMass, spectrum.parentMass));
                     double mass1 = closest.getMass();
@@ -216,7 +200,7 @@ public class TagGenerator {
 
     public static TreeSet<Path> getAllPaths(Database database, int id, double ratio) {
         TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);//best score for each string
-        Spectrum spectrum = database.getSpectrum(id);
+        Spectrum spectrum = database.getSpectraDb().getSpectrum(id);
         double parentMass = spectrum.parentMass;
         Envelope[] envelopes = spectrum.envelopes;
         double minScore = getMinScore(envelopes, ratio);

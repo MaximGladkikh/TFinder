@@ -1,6 +1,5 @@
 package ru.spbau.ablab.tagfinder.spectrum;
 
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 
 public class Envelope implements Comparable<Envelope> {

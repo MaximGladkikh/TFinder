@@ -2,7 +2,7 @@ package ru.spbau.ablab.tagfinder.path.edges;
 
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 
-import static ru.spbau.ablab.tagfinder.Protein.AA_MASS_ARRAY;
+import static ru.spbau.ablab.tagfinder.database.Database.AA_MASS_ARRAY;
 
 public class AAEdge implements Edge {
     private final char c;

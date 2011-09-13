@@ -1,10 +1,10 @@
 package ru.spbau.ablab.tagfinder;
 
+import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.Database;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 
@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class RemoveMatchStatistics extends StatisticsGenerator {
-    static boolean FILTER_DB = true;
+    private static boolean FILTER_DB = true;
     private static final int MAX_PATHS_FOR_SHIFTS = ConfigReader.getIntProperty("MAX_PATHS_FOR_SHIFTS");
 
     public static void main(String[] args) {
@@ -47,11 +47,11 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
 
         @Override
         protected void printMatchedProteinsStats(HtmlWriter writer, int id) {
-            Set<String> lastMatchedProteins = database.getLastMatchedProteins();
+            Set<String> lastMatchedProteins = database.getProteinDb().getLastMatchedProteins();
             if (lastMatchedProteins == null) {
                 return;
             }
-            writer.printTaggedValue("td", lastMatchedProteins.contains(database.getProteinFromTable(id).getName()));
+            writer.printTaggedValue("td", lastMatchedProteins.contains(database.getProteinPredictedByAlign(id).getName()));
             super.printMatchedProteinsStats(writer, id);
         }
     }
@@ -60,19 +60,15 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
         boolean success;
         do {
             success = false;
-            Spectrum experimental = database.getSpectrum(id);
+            Spectrum experimental = database.getSpectraDb().getSpectrum(id);
             boolean[] delete = new boolean[experimental.envelopes.length];
-//        Protein protein = database.getProteinFromTable(id);
-            Protein protein = database.getAlignedProtein(id);
-//            Protein protein = database.getProtein(id);
-//            removeTheoreticalSpectrum(experimental, delete, protein);
-//            success = removeTags(experimental, delete, protein);
+            Protein protein = database.getProteinPredictedByAlign(id);
             Set<Path> paths = TagGenerator.getAllPaths(database, id);
             TreeSet<Double> shifts = new TreeSet<Double>(MassUtil.MASS_COMPARATOR);
             int count = 0;
             for (Path path : paths) {
                 if (protein.contains(path)) {
-                    shifts.add(protein.getBestLastAlignment());
+                    shifts.add(protein.getLastBestShift());
                 }
                 if (++count == MAX_PATHS_FOR_SHIFTS) {
                     break;
@@ -97,8 +93,7 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
                 }
             }
             System.err.println("removed " + removed + " peaks");
-            Spectrum newSpectrum = new Spectrum(id, envelopes.toArray(new Envelope[envelopes.size()]), experimental.parentMass);
-            database.setSpectrum(id, newSpectrum);
+            database.getSpectraDb().getSpectrum(id).setEnvelopes(envelopes.toArray(new Envelope[envelopes.size()]));
         } while (success);
         System.err.println("cleaned " + id);
     }
