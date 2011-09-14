@@ -149,6 +149,10 @@ public class StatisticsGenerator implements Runnable {
                 if (pathN == MAX_PATHS) {
                     break;
                 }
+                if (protein == null || !protein.contains(path) || Math.abs(protein.getLastBestShift()) < 0.5) {
+//                    ++pathN;
+                    continue;
+                }
                 ++nTags[pathN];
                 if (path.isMonoTag()) {
                     ++monoTags[pathN];

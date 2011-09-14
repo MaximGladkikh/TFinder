@@ -11,10 +11,7 @@ import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
 
-import java.util.ArrayList;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 
 import static ru.spbau.ablab.tagfinder.database.Database.*;
 
@@ -119,6 +116,10 @@ public class TagGenerator {
             }
         }
         applyReplaceRules(database, id, ans);
+//        for (Path path : ans) {
+//            System.err.print(path + " " + path.score + " " + path.beginMass + " ");
+//        }
+//        System.err.println("");
         return ans;
     }
 
@@ -149,32 +150,38 @@ public class TagGenerator {
                 resultEdges.add(edge);
                 mass += edge.getMass();
             }
-            ans.set(i, new Path(resultEdges.toArray(new Edge[resultEdges.size()]), ans.get(i).beginMass, ans.get(i).spectrum, ans.get(i).isReversed()));
+            ans.set(i, new Path(resultEdges.toArray(new Edge[resultEdges.size()]), ans.get(i).score, ans.get(i).beginMass, ans.get(i).spectrum, ans.get(i).isReversed()));
         }
     }
 
     private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int thresholdIndex, boolean doubleMasses) {
         setDoubleMasses(doubleMasses);
-        Set<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[thresholdIndex]);
+        List<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[thresholdIndex]);
         lastRatio = RATIO_THRESHOLDS[thresholdIndex];
-        int pathN = 0;
+//        int pathN = 0;
         paths:
         for (Path path : paths) {
-            if (ans.size() >= n || pathN >= StatisticsGenerator.MAX_PATHS) {
+            if (ans.size() >= n/* || pathN >= StatisticsGenerator.MAX_PATHS*/) {
                 break;
             }
-            ++pathN;
-            for (Path stored : ans) {
+//            ++pathN;
+            for (int i = 0; i < ans.size(); ++i) {
+                Path stored = ans.get(i);
                 if (stored.canBeReversedTo(path)/* || path.toString().contains(stored.toString()) || path.getReversed().toString().contains(stored.toString())*/) {
+                    if (stored.score < path.score) {
+                        ans.set(i, path);
+                    }
                     continue paths;
                 }
             }
-            ans.add(path);
+            if (ans.size() < StatisticsGenerator.MAX_PATHS) {
+                ans.add(path);
+            }
         }
         setDoubleMasses(DOUBLE_MASSES);
     }
 
-    public static TreeSet<Path> getAllPaths(Database database, int id) {
+    public static List<Path> getAllPaths(Database database, int id) {
         return getAllPaths(database, id, 1);
     }
 
@@ -198,8 +205,8 @@ public class TagGenerator {
         return r;
     }
 
-    public static TreeSet<Path> getAllPaths(Database database, int id, double ratio) {
-        TreeMap<Path, Double> bestScore = new TreeMap<Path, Double>(Path.LENGTH_FIRST_COMPARATOR);//best score for each string
+    public static List<Path> getAllPaths(Database database, int id, double ratio) {
+        HashMap<Path, Double> bestScore = new HashMap<Path, Double>();
         Spectrum spectrum = database.getSpectraDb().getSpectrum(id);
         double parentMass = spectrum.parentMass;
         Envelope[] envelopes = spectrum.envelopes;
@@ -217,13 +224,16 @@ public class TagGenerator {
             ArrayList<Double> list = new ArrayList<Double>();
             addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score, envelopes[i].getMass(), spectrum, false), bestScore, list, null, usedEnvelopes, minScore);
         }
-        return new TreeSet<Path>(bestScore.keySet());
+        ArrayList<Path> ans = new ArrayList<Path>(bestScore.keySet());
+        Collections.sort(ans);
+        return ans;
     }
 
-    private static void addTags(Spectrum spectrum, Spectrum reversedSpectrum, int envelopeId, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, boolean[] usedEnvelopes, double minScore) {
+    private static void addTags(Spectrum spectrum, Spectrum reversedSpectrum, int envelopeId, Path path, HashMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, boolean[] usedEnvelopes, double minScore) {
         if (path.length() >= MIN_TAG_LENGTH) {
             Double d = (d = bestScore.get(path)) == null ? Double.NEGATIVE_INFINITY : d;
             if (d < path.score) {
+                bestScore.remove(path);
                 bestScore.put(path, path.score);
             }
         }
@@ -231,8 +241,14 @@ public class TagGenerator {
             return;
         }
         Envelope v = (envelopeId >= 0 ? spectrum.envelopes[envelopeId] : reversedSpectrum.envelopes[-envelopeId - 1]);
+        if (v.score < minScore) {
+            throw new AssertionError();
+        }
         double currentMass = v.getMass(parentMassCorrection);
         peaks.add(currentMass);
+//        if (path.toString().equals("TAD")) {
+//            System.err.println(path + " " + peaks + " " + path.beginMass + " " + path.score);
+//        }
         int arrayIndex = envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId);
         usedEnvelopes[arrayIndex] = true;
         for (Edge[] edges : EDGES) {
@@ -244,7 +260,7 @@ public class TagGenerator {
         peaks.remove(peaks.size() - 1);
     }
 
-    private static void findEdges(Spectrum spectrum, Spectrum reversedSpectrum, Path path, TreeMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, final double currentMass, Edge edge, boolean[] usedEnvelopes, double minScore) {
+    private static void findEdges(Spectrum spectrum, Spectrum reversedSpectrum, Path path, HashMap<Path, Double> bestScore, ArrayList<Double> peaks, Double parentMassCorrection, final double currentMass, Edge edge, boolean[] usedEnvelopes, double minScore) {
         double needMass = currentMass + edge.getMass();
         for (int next = spectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass()); next < spectrum.envelopes.length && MassUtil.edgeMatches(currentMass, spectrum.envelopes[next].getMass(), edge.getMass()); ++next) {
             Envelope nextEnvelope = spectrum.envelopes[next];
@@ -260,7 +276,7 @@ public class TagGenerator {
                 if (usedEnvelopes[spectrum.envelopes.length - 1 - next] || nextEnvelope.score < minScore) {
                     continue;
                 }
-                Path newPath = path.append(edge, nextEnvelope.score * (parentMassCorrection == null ? 0.1 : 1));
+                Path newPath = path.append(edge, nextEnvelope.score);
                 Double newMassCorrection = parentMassCorrection;
                 if (newMassCorrection == null) {
                     newMassCorrection = -(nextEnvelope.getMass() - needMass);

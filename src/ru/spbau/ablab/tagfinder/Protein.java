@@ -23,8 +23,8 @@ public class Protein {
 
     public Protein(String s, String name) {
         protein = s = clearFromTruncated(s);
-        if (s.indexOf('I') >= 0) {
-            throw new AssertionError();
+        if (s.indexOf('I') >= 0/* || s.indexOf('.') >= '.'*/) {
+            throw new AssertionError(s);
         }
         parentMass = getStringMass(s) + WATER_MASS;
         masses = getMasses(s);
@@ -41,12 +41,14 @@ public class Protein {
             char c = s.charAt(i);
             if (c == '.') {
                 l = i + 1;
+                break;
             }
         }
         for (int i = s.length() - 1; i >= 0; --i) {
             char c = s.charAt(i);
             if (c == '.') {
                 r = i;
+                break;
             }
         }
         return l < r ? s.substring(l, r) : s;

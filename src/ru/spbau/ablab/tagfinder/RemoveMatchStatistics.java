@@ -10,6 +10,7 @@ import ru.spbau.ablab.tagfinder.util.io.HtmlWriter;
 
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -63,7 +64,7 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
             Spectrum experimental = database.getSpectraDb().getSpectrum(id);
             boolean[] delete = new boolean[experimental.envelopes.length];
             Protein protein = database.getProteinPredictedByAlign(id);
-            Set<Path> paths = TagGenerator.getAllPaths(database, id);
+            List<Path> paths = TagGenerator.getAllPaths(database, id);
             TreeSet<Double> shifts = new TreeSet<Double>(MassUtil.MASS_COMPARATOR);
             int count = 0;
             for (Path path : paths) {

@@ -50,9 +50,9 @@ public class Path implements Comparable<Path> {
         this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum, reversed), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum, reversed);
     }
 
-    public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
-        this(edges, 0, beginMass, spectrum, reversed);
-    }
+//    public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
+//        this(edges, 0, beginMass, spectrum, reversed);
+//    }
 
     public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum, boolean reversed) {
         this(edges, edges.length - 1, score, beginMass, spectrum, reversed);
@@ -199,6 +199,20 @@ public class Path implements Comparable<Path> {
         return 0;
     }
 
+    @Override
+    public int hashCode() {
+        return toString().hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Path)) {
+            return false;
+        }
+        Path that = (Path) obj;
+        return toString().equals(that.toString());
+    }
+
     public Path append(Edge edge, double score) {
         return new Path(this, Math.min(this.score, score), edge, beginMass, spectrum);
     }
@@ -247,6 +261,6 @@ public class Path implements Comparable<Path> {
         Edge[] currentEdges = getEdges();
         Edge[] edges = new Edge[end - start];
         System.arraycopy(currentEdges, start, edges, 0, end - start);
-        return new Path(edges, Double.NaN, spectrum, reversed);
+        return new Path(edges, Double.NaN, Double.NaN, spectrum, reversed);
     }
 }
