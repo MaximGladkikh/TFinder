@@ -12,11 +12,13 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import static ru.spbau.ablab.tagfinder.TagGenerator.*;
 
 public class StatisticsGenerator implements Runnable {
     public static final boolean USE_DEFAULT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME");
     public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
     public static final String OUTPUT_FILE = ConfigReader.getProperty("OUTPUT_FILE");
+    public static final boolean DISABLE_DB_TAG_SEARCH = ConfigReader.getBooleanProperty("DISABLE_DB_TAG_SEARCH");
 
     protected Database database;
 
@@ -26,7 +28,7 @@ public class StatisticsGenerator implements Runnable {
 
     @Override
     public void run() {
-        ScanProcessor processor = new MatchedScanProcessor();
+        ScanProcessor processor = new MatchedScanProcessor(false, DISABLE_DB_TAG_SEARCH);
         try {
             database = Database.getInstance();
             ArrayList<Integer> scanIds = database.filter(true);
@@ -149,10 +151,10 @@ public class StatisticsGenerator implements Runnable {
                 if (pathN == MAX_PATHS) {
                     break;
                 }
-                if (protein == null || !protein.contains(path) || Math.abs(protein.getLastBestShift()) < 0.5) {
-//                    ++pathN;
-                    continue;
-                }
+//                if (protein == null || !protein.contains(path) || Math.abs(protein.getLastBestShift()) < 0.5) {
+////                    ++pathN;
+//                    continue;
+//                }
                 ++nTags[pathN];
                 if (path.isMonoTag()) {
                     ++monoTags[pathN];
@@ -214,12 +216,12 @@ public class StatisticsGenerator implements Runnable {
 
         protected void printMatchedProteinsStats(HtmlWriter writer, int id) {
             Protein proteinFromTable = bestFromAlign == null ? database.getProteinPredictedByAlign(id) : bestFromAlign.b;
-            boolean predictedFound = database.getProteinDb().getLastMatchedProteins().contains(proteinFromTable.getFullname());
+            boolean predictedFound = !dontMatch && database.getProteinDb().getLastMatchedProteins().contains(proteinFromTable.getFullname());
             writer.printTaggedValue("td", predictedFound ? "+" : "-");
             if (predictedFound) {
                 ++predictedProteinFound;
             }
-            Protein bestMatch = database.getBestMatch(id);
+            Protein bestMatch = dontMatch ? null : database.getBestMatch(id);
             boolean matchesAlign = proteinFromTable.getFullname().equals(bestMatch == null ? null : bestMatch.getFullname());
             if (matchesAlign) {
                 ++matchedAlign;
@@ -238,6 +240,6 @@ public class StatisticsGenerator implements Runnable {
 
     private String getOutputFilename() {
 //        return (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + "_" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
-        return (TagGenerator.EDGE_OF_TWO_AA ? "2" : "1") + "_" + (TagGenerator.DOUBLE_MASSES ? "doub" : "for") + "_" + ((int) (MassUtil.ERROR_THRESHOLD * 2e6)) + "ppm_" + (TagGenerator.SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
+        return (EDGE_OF_THREE_AA ? "3": EDGE_OF_TWO_AA ? "2" : "1") + "_" + (DOUBLE_MASSES ? "doub" : "for") + "_" + ((int) (MassUtil.ERROR_THRESHOLD * 2e6)) + "ppm_" + (TagGenerator.SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
     }
 }

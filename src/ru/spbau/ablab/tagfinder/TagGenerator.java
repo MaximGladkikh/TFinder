@@ -29,7 +29,7 @@ public class TagGenerator {
     private static final AAEdge[] AA_EDGES;
     private static final GapEdge[] GAP2_EDGES;
     private static final GapEdge[] GAP3_EDGES;
-    private static final Edge[][] EDGES;
+    static final Edge[][] EDGES;
 
     private static boolean edgeWasAdded(ArrayList<GapEdge> edges, double mass, String decoding) {
         for (GapEdge edge : edges) {

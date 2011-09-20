@@ -76,7 +76,6 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
                 }
             }
             shifts.add(0.);
-            System.err.println(shifts.size());
             for (double d : shifts) {
                 success |= removeTheoreticalSpectrum(experimental, delete, protein, -d);
                 success |= removeTheoreticalSpectrum(experimental, delete, protein, d);
@@ -93,10 +92,10 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
                     ++removed;
                 }
             }
-            System.err.println("removed " + removed + " peaks");
+//            System.err.println("removed " + removed + " peaks");
             database.getSpectraDb().getSpectrum(id).setEnvelopes(envelopes.toArray(new Envelope[envelopes.size()]));
         } while (success);
-        System.err.println("cleaned " + id);
+        System.out.println("cleaned " + id);
     }
 
 
