@@ -9,8 +9,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class ExperimentalProteinDb extends ProteinDb {
-    public ExperimentalProteinDb() throws FileNotFoundException {
+public class FastaProteinDb extends ProteinDb {
+    public FastaProteinDb() throws FileNotFoundException {
         FastScanner scanner = new FastScanner(new File(FASTA_PATH));
         fullnameToProtein = new HashMap<String, Protein>();
         String proteinName = null;
@@ -19,8 +19,9 @@ public class ExperimentalProteinDb extends ProteinDb {
         for (String line; (line = scanner.nextLine()) != null; ) {
             if (line.charAt(0) == '>') {
                 if (proteinName != null) {
-                    Protein protein = new Protein(proteinString.toString().trim().replace('I', 'L'), proteinName);
-                    scanIdToProtein.put(scanIdToProtein.size(), protein);
+                    int id = scanIdToProtein.size();
+                    Protein protein = new Protein(proteinString.toString().trim().replace('I', 'L'), proteinName, id);
+                    scanIdToProtein.put(id, protein);
                     fullnameToProtein.put(proteinName, protein);
                 }
                 proteinName = line.substring(1);
@@ -31,7 +32,10 @@ public class ExperimentalProteinDb extends ProteinDb {
             }
         }
         if (proteinName != null) {
-            fullnameToProtein.put(proteinName, new Protein(proteinString.toString().trim().replace('I', 'L'), proteinName));
+            int id = scanIdToProtein.size();
+            Protein protein = new Protein(proteinString.toString().trim().replace('I', 'L'), proteinName, id);
+            scanIdToProtein.put(id, protein);
+            fullnameToProtein.put(proteinName, protein);
         }
         nameToProtein = new HashMap<String, Protein>();
         proteins = new HashSet<Protein>();

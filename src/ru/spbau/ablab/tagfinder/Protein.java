@@ -20,8 +20,9 @@ public class Protein {
     public double[] masses;
     public final double parentMass;
     private double bestShift;
+    private int id;
 
-    public Protein(String s, String name) {
+    public Protein(String s, String name, int id) {
         protein = s = clearFromTruncated(s);
         if (s.indexOf('I') >= 0/* || s.indexOf('.') >= '.'*/) {
             throw new AssertionError(s);
@@ -30,8 +31,8 @@ public class Protein {
         masses = getMasses(s);
         this.fullname = name;
         revProtein = new StringBuilder(s).reverse().toString();
-        String subName = name.substring(name.indexOf("NP_"));
-        this.name = subName.substring(0, subName.indexOf('|'));
+        this.name = getShortName(name);
+        this.id = id;
     }
 
     private String clearFromTruncated(String s) {
@@ -171,5 +172,14 @@ public class Protein {
 
     public double getLastBestShift() {
         return bestShift;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public static String getShortName(String name) {
+        String subName = name.substring(name.indexOf("NP_"));
+        return subName.substring(0, subName.indexOf('|'));
     }
 }

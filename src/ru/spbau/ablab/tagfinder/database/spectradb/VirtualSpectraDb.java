@@ -25,7 +25,7 @@ public class VirtualSpectraDb extends SpectraDb {
     }
 
     public VirtualSpectraDb() throws FileNotFoundException {
-        assert scanToSpectrum != null;
+//        assert scanToSpectrum != null;
         idToEValue = new HashMap<Integer, Double>();
         HashMap<Integer, Integer> idToScan = getIdToScanMap();
         FastScanner scanner = new FastScanner(new File(ALIGN_RESULT_FILE));

@@ -3,9 +3,9 @@ package ru.spbau.ablab.tagfinder.database;
 import ru.spbau.ablab.tagfinder.Protein;
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
 import ru.spbau.ablab.tagfinder.TagGenerator;
-import ru.spbau.ablab.tagfinder.database.proteindb.ExperimentalProteinDb;
+import ru.spbau.ablab.tagfinder.database.proteindb.FastaProteinDb;
 import ru.spbau.ablab.tagfinder.database.proteindb.ProteinDb;
-import ru.spbau.ablab.tagfinder.database.proteindb.VirtualProteinDb;
+import ru.spbau.ablab.tagfinder.database.proteindb.ModifiedProteinDb;
 import ru.spbau.ablab.tagfinder.database.spectradb.ExperimentalSpectraDb;
 import ru.spbau.ablab.tagfinder.database.spectradb.SpectraDb;
 import ru.spbau.ablab.tagfinder.database.spectradb.VirtualSpectraDb;
@@ -14,12 +14,9 @@ import ru.spbau.ablab.tagfinder.spectrum.Envelope;
 import ru.spbau.ablab.tagfinder.spectrum.Spectrum;
 import ru.spbau.ablab.tagfinder.util.AKAutomaton;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
-import ru.spbau.ablab.tagfinder.util.MassUtil;
 import ru.spbau.ablab.tagfinder.util.io.FastScanner;
 import ru.spbau.ablab.tagfinder.util.pairs.ComparablePair;
 
-import javax.xml.stream.events.EntityDeclaration;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 
@@ -41,8 +38,8 @@ public class Database {
 
     private Map<Integer, Double> idToEValue;
     private ProteinDb proteinDb;
-    private VirtualProteinDb virtualProteinDb;
-    private ExperimentalProteinDb experimentalProteinDb;
+    private ModifiedProteinDb modifiedProteinDb;
+    private FastaProteinDb fastaProteinDb;
     private VirtualSpectraDb virtualSpectraDb;
     private ExperimentalSpectraDb experimentalSpectraDb;
     private SpectraDb spectraDb;
@@ -91,13 +88,13 @@ public class Database {
         experimentalSpectraDb = new ExperimentalSpectraDb();
         virtualSpectraDb = new VirtualSpectraDb();
         idToEValue = virtualSpectraDb.getIdToEValue();
-        virtualProteinDb = new VirtualProteinDb();
-        experimentalProteinDb = new ExperimentalProteinDb();
+        fastaProteinDb = new FastaProteinDb();
+        modifiedProteinDb = new ModifiedProteinDb();
         if (ALIGN) {
-            proteinDb = virtualProteinDb;
+            proteinDb = modifiedProteinDb;
             spectraDb = virtualSpectraDb;
         } else {
-            proteinDb = experimentalProteinDb;
+            proteinDb = fastaProteinDb;
             spectraDb = experimentalSpectraDb;
         }
         idToEValue = virtualSpectraDb.getIdToEValue();
@@ -180,8 +177,12 @@ public class Database {
     }
 
     public Protein getProteinPredictedByAlign(int id) {
-        String name = virtualProteinDb.getProteinByScanId(id).getName();
-//        return virtualProteinDb.getProteinByScanId(id);
-        return experimentalProteinDb.getProteinByName(name);
+        String name = modifiedProteinDb.getProteinByScanId(id).getName();
+//        return modifiedProteinDb.getProteinByScanId(id);
+        return fastaProteinDb.getProteinByName(name);
+    }
+
+    public int getProteinIdByName(String name) {
+        return fastaProteinDb.getProteinByName(name).getId();
     }
 }
