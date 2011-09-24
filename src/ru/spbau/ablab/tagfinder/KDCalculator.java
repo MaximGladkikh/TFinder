@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.TreeMap;
 
-import static ru.spbau.ablab.tagfinder.database.Database.AA_MASS_ARRAY;
+import static ru.spbau.ablab.tagfinder.database.Database.*;
 
 public class KDCalculator implements Runnable {
     private static TreeMap<Result, ArrayList<Integer>> bestPairs = new TreeMap<Result, ArrayList<Integer>>();
@@ -23,7 +23,6 @@ public class KDCalculator implements Runnable {
     private Envelope[] envelopes;
     private String[] longestPath;
     private double[] beginMasses;
-    //    private int[] kValue;
     private DisjointSetUnion union;
 
     public static void main(String[] args) throws FileNotFoundException {
@@ -33,11 +32,7 @@ public class KDCalculator implements Runnable {
             new KDCalculator(database.getSpectraDb().getSpectrum(id), database.getProteinPredictedByAlign(id)).run();
         }
         PrintWriter writer = new PrintWriter("kd.txt");
-//        @SuppressWarnings("unchecked")
-//        Result[] pairs = bestPairs.keySet().toArray(new Result[bestPairs.size()]);
-//        ComparablePair<Integer, Integer>[] pairs = bestPairs.keySet().toArray(new ComparablePair[bestPairs.size()]);
         for (Result pair : bestPairs.keySet()) {
-//        for (int i = pairs.length - 1; i >= 0; --i) {
             writer.println("(" + pair.longestPath.length() + ", " + pair.longestCorrectPath.length() + ") " + bestPairs.get(pair).size() + " times : " + pair.longestPath + " " + pair.longestCorrectPath + " " + bestPairs.get(pair));
         }
         writer.close();
@@ -66,15 +61,12 @@ public class KDCalculator implements Runnable {
     }
 
     private void computeKs() {
-//        int[] maxDepth = new int[envelopes.length];
         String[] maxPath = new String[envelopes.length];
         longestPath = new String[envelopes.length];
         beginMasses = new double[envelopes.length];
         Arrays.fill(maxPath, "");
         Arrays.fill(longestPath, "");
         Arrays.fill(beginMasses, Double.NaN);
-//        kValue = new int[envelopes.length];
-//        Arrays.fill(maxDepth, -1);
 
         for (int i = envelopes.length - 1; i >= 0; --i) {
             String best = "";
@@ -88,7 +80,6 @@ public class KDCalculator implements Runnable {
                         if (best.length() < s.length()) {
                             best = s;
                         }
-//                        maxDepth[i] = Math.max(maxDepth[i], maxDepth[next]);
                     }
                 }
             }
@@ -96,16 +87,13 @@ public class KDCalculator implements Runnable {
             if (best.indexOf('I') >= 0) {
                 throw new AssertionError();
             }
-//            ++maxDepth[i];
         }
         for (int i = 0; i < envelopes.length; ++i) {
             int setId = union.findSet(i);
             if (longestPath[setId].length() < maxPath[i].length()) {
                 longestPath[setId] = maxPath[i];
                 beginMasses[setId] = envelopes[i].getMass();
-//                System.err.println(longestPath[setId]);
             }
-//            kValue[setId] = Math.max(maxDepth[i], kValue[setId]);
         }
     }
 
@@ -113,25 +101,39 @@ public class KDCalculator implements Runnable {
         Result bestPair = null;
         bestPair = getBestPair(bestPair, sequence, false);
         bestPair = getBestPair(bestPair, new StringBuilder(sequence).reverse().toString(), true);
-//        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ") " + String.format("%.2f", bestPair.beginMass) + " " + bestPair.longestPath + " " + String.format("%.2f", bestPair.beginCorrectMass) + " " + bestPair.longestCorrectPath + " " + protein.getId() + " " + protein.getName() + " " + sequence);
-        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ")");
+//        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ") " + String.format("%.2f", bestPair.beginMass) + " " + bestPair.longestPath + " " + String.format("%.2f", bestPair.beginCorrectMass) + " " + bestPair.longestCorrectPath + " " + protein.getId() + " " + protein.getName() + " " + sequence);//        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ")");
+        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ") ");// + String.format("%.2f", bestPair.beginMass) + " " + bestPair.longestPath + " " + String.format("%.2f", bestPair.beginCorrectMass) + " " + bestPair.longestCorrectPath + " " + protein.getId() + " " + protein.getName() + " " + sequence);//        System.out.println(spectrum.id + " (" + bestPair.longestPath.length() + ", " + bestPair.longestCorrectPath.length() + ")");
         return bestPair;
     }
 
+    private int[][] dp;
+
+    private int getD(int aaIndex, int peakIndex, String sequence) {
+        if (aaIndex == sequence.length() || peakIndex == envelopes.length) {
+            return 0;
+        }
+        if (dp[aaIndex][peakIndex] >= 0) {
+            return dp[aaIndex][peakIndex];
+        }
+        int ans = 0;
+        double currentMass = envelopes[peakIndex].getMass();
+        double edgeMass = AA_MASS_ARRAY[sequence.charAt(aaIndex)];
+        double needMass = currentMass + edgeMass;
+        for (int next = spectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edgeMass); next < spectrum.envelopes.length && MassUtil.edgeMatches(currentMass, spectrum.envelopes[next].getMass(), edgeMass); ++next) {
+            ans = Math.max(ans, getD(aaIndex + 1, next, sequence) + 1);
+        }
+        return dp[aaIndex][peakIndex] = ans;
+    }
+
     private Result getBestPair(Result bestPair, String sequence, boolean reversed) {
+        reversed = false;
+        dp = new int[sequence.length()][envelopes.length];
+        for (int [] a : dp) {
+            Arrays.fill(a, -1);
+        }
         for (int i = 0; i < sequence.length(); ++i) {
             for (int j = 0; j < envelopes.length; ++j) {
-                double mass = envelopes[j].getMass();
-                int matched = 0;
-                for (; i + matched < sequence.length() && j + matched < envelopes.length; ++matched) {
-                    double edgeMass = AA_MASS_ARRAY[sequence.charAt(i + matched)];
-                    Envelope closest = spectrum.getClosest(mass + edgeMass);
-                    if (!MassUtil.edgeMatches(mass, closest.getMass(), edgeMass)) {
-                        break;
-                    }
-                    mass = closest.getMass();
-                }
-//                int k = kValue[union.findSet(j)];
+                int matched = getD(i, j, sequence);
                 int set = union.findSet(j);
                 String k = longestPath[set];
                 String matchedTag = sequence.substring(i, i + matched);
