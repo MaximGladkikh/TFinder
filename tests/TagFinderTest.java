@@ -14,7 +14,7 @@ public class TagFinderTest extends TestCase {
 
 
     public void testMonoTags() {
-        ConfigReader.setProperty("DOUBLE_MASSES","false");
+        ConfigReader.setProperty("USE_RED_BLUE_GRAPH","false");
         StatisticsGenerator.main(null);
     }
 }

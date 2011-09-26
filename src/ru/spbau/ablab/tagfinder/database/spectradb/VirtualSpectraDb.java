@@ -25,14 +25,12 @@ public class VirtualSpectraDb extends SpectraDb {
     }
 
     public VirtualSpectraDb() throws FileNotFoundException {
-//        assert scanToSpectrum != null;
-        idToEValue = new HashMap<Integer, Double>();
+        idToEValue = new HashMap<>();
         HashMap<Integer, Integer> idToScan = getIdToScanMap();
         FastScanner scanner = new FastScanner(new File(ALIGN_RESULT_FILE));
-        scanToSpectrum = new TreeMap<Integer, Spectrum>();
+        scanToSpectrum = new TreeMap<>();
         Database database = Database.getInstance();
-        while (scanner.hasNextLine()) {
-            scanner.skipLine("BEGIN PRSM");
+        while (scanner.skipLine("BEGIN PRSM")) {
             int spectrumId = scanner.getNextIntProperty("SPECTRUM_ID");
             boolean toAdd = idToScan.containsKey(spectrumId);
             int id = toAdd ? idToScan.get(spectrumId) : -1;
@@ -40,7 +38,7 @@ public class VirtualSpectraDb extends SpectraDb {
             idToEValue.put(id, eValue);
             double parentMass = toAdd ? idToPrecursorMass.get(id) : Double.NaN;
             scanner.skipLine("BEGIN MATCH_PAIR");
-            ArrayList<Envelope> envelopes = new ArrayList<Envelope>();
+            ArrayList<Envelope> envelopes = new ArrayList<>();
             for (String s; !(s = scanner.nextLine().trim()).equals("END MATCH_PAIR"); ) {
                 String[] strings = StringUtil.getTokenArray(s);
                 double mass = Double.parseDouble(strings[3]);
@@ -63,8 +61,8 @@ public class VirtualSpectraDb extends SpectraDb {
 
     private HashMap<Integer, Integer> getIdToScanMap() throws FileNotFoundException {
         FastScanner scanner = new FastScanner(new File(ALIGN_SPECTRA_FILE));
-        HashMap<Integer, Integer> ans = new HashMap<Integer, Integer>();
-        idToPrecursorMass = new HashMap<Integer, Double>();
+        HashMap<Integer, Integer> ans = new HashMap<>();
+        idToPrecursorMass = new HashMap<>();
         while (scanner.skipLine("BEGIN IONS")) {
             int id = scanner.getNextIntProperty("ID");
             int scan = scanner.getNextIntProperty("SCANS");

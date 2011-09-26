@@ -20,12 +20,11 @@ public class UnmatchedStatistics extends StatisticsGenerator {
             database = Database.getInstance();
             database.filter(false);
             String fileName = "unmatched.html";
-            if (!ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME")) {
+            if (!ConfigReader.getBooleanProperty("USE_DEFAULT_OUTPUT_FILENAME")) {
                 fileName = "unmatched" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
             }
             HtmlWriter writer = new HtmlWriter(fileName);
             ArrayList<Integer> ids = database.getUnmatchedIds();
-//            ids.retainAll(ArrayUtil.asList(671));
             UnmatchedScanProcessor processor = new UnmatchedScanProcessor();
             printStatistics(writer, ids, processor);
             writer.close();

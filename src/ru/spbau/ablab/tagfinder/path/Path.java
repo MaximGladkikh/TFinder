@@ -39,7 +39,6 @@ public class Path implements Comparable<Path> {
         edges = 1 + (parent == null ? 0 : parent.edges);
         this.parent = parent;
         this.beginMass = beginMass;
-//        assert Database.ALIGN || beginMass + getMass() <= spectrum.parentMass;
     }
 
     public Path(Path parent, double score, Edge edge, double beginMass, Spectrum spectrum) {
@@ -49,10 +48,6 @@ public class Path implements Comparable<Path> {
     private Path(Edge[] edges, int pos, double score, double beginMass, Spectrum spectrum, boolean reversed) {
         this(pos <= 0 ? null : new Path(edges, pos - 1, score, beginMass, spectrum, reversed), score, pos >= 0 ? edges[pos] : null, beginMass, spectrum, reversed);
     }
-
-//    public Path(Edge[] edges, double beginMass, Spectrum spectrum, boolean reversed) {
-//        this(edges, 0, beginMass, spectrum, reversed);
-//    }
 
     public Path(Edge[] edges, double score, double beginMass, Spectrum spectrum, boolean reversed) {
         this(edges, edges.length - 1, score, beginMass, spectrum, reversed);
@@ -74,29 +69,11 @@ public class Path implements Comparable<Path> {
         return mass;
     }
 
-    public ArrayList<Double> getAllPossibleShifts() {
-        ArrayList<Double> ans = new ArrayList<Double>();
-        for (Envelope envelope : spectrum.getEnvelopes()) {
-//            if (toString().equals("VFS") && Math.abs(envelope.getMass() - 4808) > 5) {
-//                continue;
-//            }
-            double mass = envelope.getMass();
-            if (checkDirection(spectrum, mass, getEdges(), 1)) {
-                ans.add(envelope.getMass());
-            }
-            if (checkDirection(spectrum, mass, getReversedEdges(), -1)) {
-                ans.add(-envelope.getMass());
-            }
-        }
-        return  ans;
-    }
-
     private boolean checkDirection(Spectrum spectrum, double mass, Edge[] edges, double direction) {
         for (Edge edge : edges)  {
             double needMass = mass + edge.getMass() * direction;
             Envelope nextEnvelope = spectrum.getClosest(needMass);
             if (MassUtil.compare(needMass, nextEnvelope.getMass(), 40e-6 * needMass) != 0) {
-//                System.err.println(edge + " : " + mass + " " + needMass + " " + nextEnvelope.getMass());
                 return false;
             }
             mass = nextEnvelope.getMass();
@@ -112,7 +89,6 @@ public class Path implements Comparable<Path> {
         Edge[] reversedEdges = getReversedEdges();
         isMonoTag = spectrumHasPeaks(beginMass, edges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), edges, -1.);
         isMonoTag |= spectrumHasPeaks(beginMass, reversedEdges, 1.) || spectrumHasPeaks(MassUtil.convertIonsType(beginMass + getMass(), spectrum.parentMass), reversedEdges, -1.);
-//        assert length() <= 1 || (TagGenerator.DOUBLE_MASSES || isMonoTag);
         return isMonoTag;
     }
 

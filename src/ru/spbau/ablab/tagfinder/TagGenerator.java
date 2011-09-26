@@ -17,8 +17,8 @@ import static ru.spbau.ablab.tagfinder.database.Database.*;
 
 @SuppressWarnings("unchecked")
 public class TagGenerator {
-    public static boolean DOUBLE_MASSES = ConfigReader.getBooleanProperty("DOUBLE_MASSES");
-    private static boolean doubleMasses = DOUBLE_MASSES;
+    public static boolean USE_RED_BLUE_GRAPH = ConfigReader.getBooleanProperty("USE_RED_BLUE_GRAPH");
+    private static boolean useRedBlueGraph = USE_RED_BLUE_GRAPH;
     public static int MAX_TAG_LENGTH = ConfigReader.getIntProperty("MAX_TAG_LENGTH");
     public static int MIN_TAG_LENGTH = ConfigReader.getIntProperty("MIN_TAG_LENGTH");
     public static final boolean EDGE_OF_TWO_AA = ConfigReader.getBooleanProperty("EDGE_OF_TWO_AA");
@@ -43,19 +43,19 @@ public class TagGenerator {
 
     static {
         AA_EDGES = new AAEdge[ALPHABET_SIZE];
-        ArrayList<GapEdge> gap2Edges = new ArrayList<GapEdge>();
-        ArrayList<GapEdge> gap3Edges = new ArrayList<GapEdge>();
+        ArrayList<GapEdge> gap2Edges = new ArrayList<>();
+        ArrayList<GapEdge> gap3Edges = new ArrayList<>();
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
-            AA_EDGES[i] = new AAEdge(AA_LET[i]);
+            AA_EDGES[i] = new AAEdge(AA_LETTER[i]);
             for (int j = 0; j < ALPHABET_SIZE; ++j) {
                 double mass = AA_MONO_MASS[i] + AA_MONO_MASS[j];
-                String decoding = "" + AA_LET[i] + AA_LET[j];
+                String decoding = "" + AA_LETTER[i] + AA_LETTER[j];
                 if (!edgeWasAdded(gap2Edges, mass, decoding)) {
                     gap2Edges.add(new GapEdge(mass, decoding));
                 }
                 for (int k = 0; k < ALPHABET_SIZE; ++k) {
                     mass = AA_MONO_MASS[i] + AA_MONO_MASS[j] + AA_MONO_MASS[k];
-                    decoding = "" + AA_LET[i] + AA_LET[j] + AA_LET[k];
+                    decoding = "" + AA_LETTER[i] + AA_LETTER[j] + AA_LETTER[k];
                     if (!edgeWasAdded(gap3Edges, mass, decoding)) {
                         gap3Edges.add(new GapEdge(mass, decoding));
                     }
@@ -67,14 +67,13 @@ public class TagGenerator {
         EDGES = EDGE_OF_TWO_AA ? (EDGE_OF_THREE_AA ? new Edge[][]{AA_EDGES, GAP2_EDGES, GAP3_EDGES} : new Edge[][]{AA_EDGES, GAP2_EDGES}) : new Edge[][]{AA_EDGES};
     }
 
-    private static final ArrayList<Pair<Integer, Pair<Integer, Integer>>> replaceRules = new ArrayList<Pair<Integer, Pair<Integer, Integer>>>();
-
+    private static final ArrayList<Pair<Integer, Pair<Integer, Integer>>> replaceRules = new ArrayList<>();
     static {
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
             for (int j = 0; j < ALPHABET_SIZE; ++j) {
                 for (int k = 0; k < ALPHABET_SIZE; ++k) {
                     if (MassUtil.same(AA_MONO_MASS[i], AA_MONO_MASS[j] + AA_MONO_MASS[k])) {
-                        replaceRules.add(new Pair<Integer, Pair<Integer, Integer>>(i, new Pair<Integer, Integer>(j, k)));
+                        replaceRules.add(new Pair<>(i, new Pair<>(j, k)));
                     }
                 }
             }
@@ -82,7 +81,6 @@ public class TagGenerator {
     }
 
     private static final double[] RATIO_THRESHOLDS;
-
     static {
         String[] s = ConfigReader.getProperty("RATIO_THRESHOLDS").split(" +");
         RATIO_THRESHOLDS = new double[s.length];
@@ -97,38 +95,34 @@ public class TagGenerator {
         return lastRatio;
     }
 
-    private static void setDoubleMasses(boolean b) {
-        doubleMasses = b;
+    private static void setUseRedBlueGraph(boolean b) {
+        useRedBlueGraph = b;
     }
 
     public static ArrayList<Path> getTopTags(int id, int n) {
         Database database = Database.getInstance();
-        ArrayList<Path> ans = new ArrayList<Path>();
+        ArrayList<Path> ans = new ArrayList<>();
         if (GENERATE_ALL_TAGS) {
             assert RATIO_THRESHOLDS[RATIO_THRESHOLDS.length - 1] == 1;
-            fillTopTags(database, id, n, ans, RATIO_THRESHOLDS.length - 1, DOUBLE_MASSES);
+            fillTopTags(database, id, n, ans, RATIO_THRESHOLDS.length - 1, USE_RED_BLUE_GRAPH);
         } else {
             for (int i = 0; i < RATIO_THRESHOLDS.length && ans.size() < n; ++i) {
                 fillTopTags(database, id, n, ans, i, false);
-                if (DOUBLE_MASSES && ans.size() < n) {
+                if (USE_RED_BLUE_GRAPH && ans.size() < n) {
                     fillTopTags(database, id, n, ans, i, true);
                 }
             }
         }
         applyReplaceRules(database, id, ans);
-//        for (Path path : ans) {
-//            System.err.print(path + " " + path.score + " " + path.beginMass + " ");
-//        }
-//        System.err.println("");
         return ans;
     }
 
     private static void applyReplaceRules(Database database, int id, ArrayList<Path> ans) {
         for (int i = 0; i < ans.size(); ++i) {
             Edge[] edges = ans.get(i).getEdges();
-            ArrayList<Edge> resultEdges = new ArrayList<Edge>();
+            ArrayList<Edge> resultEdges = new ArrayList<>();
             double mass = ans.get(i).beginMass;
-            j:
+            loop:
             for (Edge edge : edges) {
                 for (Pair<Integer, Pair<Integer, Integer>> rule : replaceRules) {
                     double needMass = mass + AA_EDGES[rule.b.a].getMass();
@@ -140,11 +134,11 @@ public class TagGenerator {
                     if (Math.abs(mass1 - needMass) > Math.abs(mass2 - needMass)) {
                         mass1 = mass2;
                     }
-                    if (Character.valueOf(AA_LET[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < MassUtil.ERROR_THRESHOLD * 2) {//MassUtil.compare(closest.getMass(), needMass) == 0) {
+                    if (Character.valueOf(AA_LETTER[rule.a]).equals(edge.getLetter()) && Math.abs(mass1 - needMass) < MassUtil.ERROR_THRESHOLD * 2) {//MassUtil.compare(closest.getMass(), needMass) == 0) {
                         resultEdges.add(AA_EDGES[rule.b.a]);
                         resultEdges.add(AA_EDGES[rule.b.b]);
                         mass += AA_EDGES[rule.a].getMass();
-                        continue j;
+                        continue loop;
                     }
                 }
                 resultEdges.add(edge);
@@ -155,30 +149,28 @@ public class TagGenerator {
     }
 
     private static void fillTopTags(Database database, int id, int n, ArrayList<Path> ans, int thresholdIndex, boolean doubleMasses) {
-        setDoubleMasses(doubleMasses);
+        setUseRedBlueGraph(doubleMasses);
         List<Path> paths = getAllPaths(database, id, RATIO_THRESHOLDS[thresholdIndex]);
         lastRatio = RATIO_THRESHOLDS[thresholdIndex];
-//        int pathN = 0;
         paths:
         for (Path path : paths) {
-            if (ans.size() >= n/* || pathN >= StatisticsGenerator.MAX_PATHS*/) {
+            if (ans.size() >= n) {
                 break;
             }
-//            ++pathN;
             for (int i = 0; i < ans.size(); ++i) {
                 Path stored = ans.get(i);
-                if (stored.canBeReversedTo(path)/* || path.toString().contains(stored.toString()) || path.getReversed().toString().contains(stored.toString())*/) {
+                if (stored.canBeReversedTo(path)) {
                     if (stored.score < path.score) {
                         ans.set(i, path);
                     }
                     continue paths;
                 }
             }
-            if (ans.size() < StatisticsGenerator.MAX_PATHS) {
+            if (ans.size() < StatisticsGenerator.MAX_TAGS_IN_SET) {
                 ans.add(path);
             }
         }
-        setDoubleMasses(DOUBLE_MASSES);
+        setUseRedBlueGraph(USE_RED_BLUE_GRAPH);
     }
 
     public static List<Path> getAllPaths(Database database, int id) {
@@ -206,7 +198,7 @@ public class TagGenerator {
     }
 
     public static List<Path> getAllPaths(Database database, int id, double ratio) {
-        HashMap<Path, Double> bestScore = new HashMap<Path, Double>();
+        HashMap<Path, Double> bestScore = new HashMap<>();
         Spectrum spectrum = database.getSpectraDb().getSpectrum(id);
         double parentMass = spectrum.parentMass;
         Envelope[] envelopes = spectrum.envelopes;
@@ -221,10 +213,10 @@ public class TagGenerator {
             if (envelopes[i].score < minScore) {
                 continue;
             }
-            ArrayList<Double> list = new ArrayList<Double>();
+            ArrayList<Double> list = new ArrayList<>();
             addTags(spectrum, reversedSpectrum, i, new Path(new Edge[0], envelopes[i].score, envelopes[i].getMass(), spectrum, false), bestScore, list, null, usedEnvelopes, minScore);
         }
-        ArrayList<Path> ans = new ArrayList<Path>(bestScore.keySet());
+        ArrayList<Path> ans = new ArrayList<>(bestScore.keySet());
         Collections.sort(ans);
         return ans;
     }
@@ -246,9 +238,6 @@ public class TagGenerator {
         }
         double currentMass = v.getMass(parentMassCorrection);
         peaks.add(currentMass);
-//        if (path.toString().equals("TAD")) {
-//            System.err.println(path + " " + peaks + " " + path.beginMass + " " + path.score);
-//        }
         int arrayIndex = envelopeId >= 0 ? envelopeId : (spectrum.envelopes.length + envelopeId);
         usedEnvelopes[arrayIndex] = true;
         for (Edge[] edges : EDGES) {
@@ -270,7 +259,7 @@ public class TagGenerator {
             Path newPath = path.append(edge, nextEnvelope.score);
             addTags(spectrum, reversedSpectrum, next, newPath, bestScore, peaks, parentMassCorrection, usedEnvelopes, minScore);
         }
-        if (doubleMasses) {
+        if (useRedBlueGraph) {
             for (int next = reversedSpectrum.getFirstMatchingEnvelopeIndex(currentMass, needMass, edge.getMass(), parentMassCorrection); next < reversedSpectrum.envelopes.length && MassUtil.edgeMatches(currentMass, reversedSpectrum.envelopes[next].getMass(parentMassCorrection), edge.getMass(), spectrum.parentMass, parentMassCorrection); ++next) {
                 Envelope nextEnvelope = reversedSpectrum.envelopes[next];
                 if (usedEnvelopes[spectrum.envelopes.length - 1 - next] || nextEnvelope.score < minScore) {

@@ -3,7 +3,7 @@ package ru.spbau.ablab.tagfinder.util.io;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 
-import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_PATHS;
+import static ru.spbau.ablab.tagfinder.StatisticsGenerator.MAX_TAGS_IN_SET;
 import static ru.spbau.ablab.tagfinder.TagGenerator.MIN_TAG_LENGTH;
 
 public class HtmlWriter extends PrintWriter {
@@ -34,7 +34,7 @@ public class HtmlWriter extends PrintWriter {
         printTaggedValue("div", "set");
         printCloseTh();
         printThTaggedValue("E-value");
-        for (int i = 1; i <= MAX_PATHS; ++i) {
+        for (int i = 1; i <= MAX_TAGS_IN_SET; ++i) {
             printThTaggedValue("tag# " + i);
         }
         printOpenTh();
@@ -65,11 +65,11 @@ public class HtmlWriter extends PrintWriter {
             printEmptyTag("th");
         }
         double sum = 0;
-        for (int i = 0; i < MAX_PATHS; ++i) {
+        for (int i = 0; i < MAX_TAGS_IN_SET; ++i) {
             sum += 1. * found[i] / scansProcessed;
         }
         printThTaggedValue(String.format("%.2f", sum));
-        for (int i = 0; i < MAX_PATHS; ++i) {
+        for (int i = 0; i < MAX_TAGS_IN_SET; ++i) {
             printOpenTag("td");
             printTaggedValue("div", String.format("%.5f", 1. * found[i] / scansProcessed), "align=center");
             printCloseTag("td");
@@ -83,7 +83,7 @@ public class HtmlWriter extends PrintWriter {
         int len = count[0].length - 1;
         while (len >= MIN_TAG_LENGTH) {
             boolean found = false;
-            for (int i = 0; i < MAX_PATHS; ++i) {
+            for (int i = 0; i < MAX_TAGS_IN_SET; ++i) {
                 if (count[i][len] > 0) {
                     found = true;
                 }
@@ -100,7 +100,7 @@ public class HtmlWriter extends PrintWriter {
             printThTaggedValue("=");
             printThTaggedValue("");
             printThTaggedValue(len);
-            for (int i = 0; i < MAX_PATHS; ++i) {
+            for (int i = 0; i < MAX_TAGS_IN_SET; ++i) {
                 printOpenTag("td");
                 printTaggedValue("div", count[i][len], "align=center");
                 printCloseTag("td");

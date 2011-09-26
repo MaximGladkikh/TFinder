@@ -141,7 +141,6 @@ public class Protein {
                 continue;
             }
             int matchedEdges = 0;
-            j:
             for (int j = 0, pos = i; j < edges.length && pos < protein.length(); ++j) {
                 int len = 0;
                 decoding:
@@ -152,9 +151,8 @@ public class Protein {
                             continue decoding;
                         }
                     }
-                    pos += len;
                     ++matchedEdges;
-                    continue j;
+                    break;
                 }
                 pos += len;
             }

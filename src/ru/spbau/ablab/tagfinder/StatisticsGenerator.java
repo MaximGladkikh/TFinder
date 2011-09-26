@@ -12,11 +12,12 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
 import static ru.spbau.ablab.tagfinder.TagGenerator.*;
 
 public class StatisticsGenerator implements Runnable {
-    public static final boolean USE_DEFAULT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_FILENAME");
-    public static final int MAX_PATHS = ConfigReader.getIntProperty("MAX_PATHS");
+    public static final boolean USE_DEFAULT_OUTPUT_FILENAME = ConfigReader.getBooleanProperty("USE_DEFAULT_OUTPUT_FILENAME");
+    public static final int MAX_TAGS_IN_SET = ConfigReader.getIntProperty("MAX_TAGS_IN_SET");
     public static final String OUTPUT_FILE = ConfigReader.getProperty("OUTPUT_FILE");
     public static final boolean DISABLE_DB_TAG_SEARCH = ConfigReader.getBooleanProperty("DISABLE_DB_TAG_SEARCH");
 
@@ -32,7 +33,7 @@ public class StatisticsGenerator implements Runnable {
         try {
             database = Database.getInstance();
             ArrayList<Integer> scanIds = database.filter(true);
-            String fileName = USE_DEFAULT_FILENAME ? OUTPUT_FILE : getOutputFilename();
+            String fileName = USE_DEFAULT_OUTPUT_FILENAME ? OUTPUT_FILE : getOutputFilename();
             HtmlWriter writer = new HtmlWriter(fileName);
             printStatistics(writer, scanIds, processor);
             writer.close();
@@ -48,10 +49,10 @@ public class StatisticsGenerator implements Runnable {
         long startTime = System.currentTimeMillis();
         writer.printOpenTag("table", "cellpadding=0 cellspacing=20");
         writer.printHeader();
-        int[] found = new int[MAX_PATHS];
-        int[][] count = new int[MAX_PATHS][TagGenerator.MAX_TAG_LENGTH * 2];
-        int[] nTags = new int[MAX_PATHS];
-        int[] monoTags = new int[MAX_PATHS];
+        int[] found = new int[MAX_TAGS_IN_SET];
+        int[][] count = new int[MAX_TAGS_IN_SET][TagGenerator.MAX_TAG_LENGTH * 2];
+        int[] nTags = new int[MAX_TAGS_IN_SET];
+        int[] monoTags = new int[MAX_TAGS_IN_SET];
         for (int id : scanIds) {
             processor.processScan(id, writer, count, found, nTags, monoTags);
         }
@@ -59,7 +60,7 @@ public class StatisticsGenerator implements Runnable {
         writer.printMonoTags(nTags, monoTags);
         writer.printRatio(found, processor.getProcessedScansNumber(), processor.getPredictedProteinFoundNumber(), processor.getMatchedMsAlignNumber());
         writer.printCloseTag("table");
-        System.out.println(processor.getMatchedMsAlignNumber() + " proteins matched MS-ALIGN+");
+        System.out.println(processor.getMatchedMsAlignNumber() + " proteins matched MS-USE_VIRTUAL_SPECTRA+");
         System.out.printf("Statistics generated in %.3fms\n", 1e-3 * (System.currentTimeMillis() - startTime));
     }
 
@@ -81,11 +82,12 @@ public class StatisticsGenerator implements Runnable {
         public int processed = 0;
         protected Pair<Double, Protein> bestFromAlign;
         protected boolean printShifts;
+        private boolean dontSearchForBest = ConfigReader.getBooleanProperty("DISABLE_PROTEIN_IDENTIFICATION_BY_TAGS");
 
         public MatchedScanProcessor(boolean skip, boolean dontMatch) {
             this.skip = skip;
             this.dontMatch = dontMatch;
-            printShifts = Database.ALIGN;
+            printShifts = Database.USE_VIRTUAL_SPECTRA;
         }
 
         public MatchedScanProcessor(boolean skip) {
@@ -100,7 +102,7 @@ public class StatisticsGenerator implements Runnable {
         }
 
         public boolean processScan(int id, HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags) {
-            List<Path> paths = TagGenerator.getTopTags(id, MAX_PATHS);
+            List<Path> paths = TagGenerator.getTopTags(id, MAX_TAGS_IN_SET);
             if (skip && paths.isEmpty()) {
                 return false;
             }
@@ -122,9 +124,6 @@ public class StatisticsGenerator implements Runnable {
             writer.printCloseTag("tr");
             writer.flush();
             System.out.println(id + " ok");
-//            if (protein != null && paths.size() > 0f) {
-//                System.err.println((protein.parentMass - paths.get(0).spectrum.parentMass));
-//            }
             return true;
         }
 
@@ -146,15 +145,10 @@ public class StatisticsGenerator implements Runnable {
         protected void printTags(HtmlWriter writer, int[][] count, int[] found, int[] nTags, int[] monoTags, Protein protein, Collection<Path> paths) {
             int pathN = 0;
             boolean foundFirst = false;
-//            System.err.println(Arrays.toString(paths.iterator().next().spectrum.envelopes));
             for (Path path : paths) {
-                if (pathN == MAX_PATHS) {
+                if (pathN == MAX_TAGS_IN_SET) {
                     break;
                 }
-//                if (protein == null || !protein.contains(path) || Math.abs(protein.getLastBestShift()) < 0.5) {
-////                    ++pathN;
-//                    continue;
-//                }
                 ++nTags[pathN];
                 if (path.isMonoTag()) {
                     ++monoTags[pathN];
@@ -163,11 +157,10 @@ public class StatisticsGenerator implements Runnable {
                 writer.printOpenTag("div", "align=center");
                 writer.printTagPrefix("span");
                 boolean notPrint = false;
-                Double bestAbs = null;
+                Double bestDiff = null;
                 if (protein != null && protein.contains(path)) {
-//                    System.err.println(path + " " + protein.getString());
                     if (printShifts) {
-                        bestAbs = protein.getLastBestShift();
+                        bestDiff = protein.getLastBestShift();
                     }
                     if (!foundFirst) {
                         writer.printTagSuffix("style=\"color:red;font-weight:bold\"");
@@ -179,7 +172,6 @@ public class StatisticsGenerator implements Runnable {
                 } else if (protein != null) {
                     for (int mask = 1; mask < 4; ++mask) {
                         Path subPath = path.subPath(mask & 1, path.edges - mask / 2);
-//                        System.err.println(subPath + " " + protein.contains(subPath));
                         Edge[] edges = path.getEdges();
                         if (subPath.length() > 0 && protein.contains(subPath)) {
                             writer.printTagSuffix("style=\"color:blue\"");
@@ -202,33 +194,37 @@ public class StatisticsGenerator implements Runnable {
                 }
                 ++count[pathN][path.length()];
                 if (!notPrint) {
-                    writer.println(path + " " + (protein == null ? 0 : protein.getMaxMatch(path)) + " " + (bestAbs == null ? "" : String.format("%.2f", bestAbs)) + " " + String.format("%.2f", path.beginMass));
+                    writer.println(path + " " + (protein == null ? 0 : protein.getMaxMatch(path)) + " " + (bestDiff == null ? "" : String.format("%.2f", bestDiff)) + " " + String.format("%.2f", path.beginMass));
                     writer.printCloseTag("span");
                 }
                 writer.printCloseTag("div");
                 writer.printCloseTag("td");
                 ++pathN;
             }
-            for (; pathN < MAX_PATHS; ++pathN) {
+            for (; pathN < MAX_TAGS_IN_SET; ++pathN) {
                 writer.printEmptyTag("td");
             }
         }
 
         protected void printMatchedProteinsStats(HtmlWriter writer, int id) {
-            Protein proteinFromTable = bestFromAlign == null ? database.getProteinPredictedByAlign(id) : bestFromAlign.b;
-            boolean predictedFound = !dontMatch && database.getProteinDb().getLastMatchedProteins().contains(proteinFromTable.getFullname());
+            Protein proteinFromAlign = bestFromAlign == null ? database.getProteinPredictedByAlign(id) : bestFromAlign.b;
+            boolean predictedFound = !dontMatch && database.getProteinDb().getLastMatchedProteins().contains(proteinFromAlign.getFullname());
             writer.printTaggedValue("td", predictedFound ? "+" : "-");
             if (predictedFound) {
                 ++predictedProteinFound;
             }
-            Protein bestMatch = dontMatch ? null : database.getBestMatch(id);
-            boolean matchesAlign = proteinFromTable.getFullname().equals(bestMatch == null ? null : bestMatch.getFullname());
-            if (matchesAlign) {
-                ++matchedAlign;
+            if (!dontSearchForBest) {
+                Protein bestMatch = dontMatch ? null : database.getBestMatch(id);
+                boolean matchesAlign = proteinFromAlign.getFullname().equals(bestMatch == null ? null : bestMatch.getFullname());
+                if (matchesAlign) {
+                    ++matchedAlign;
+                }
+                writer.printOpenTag("td");
+                writer.printTaggedValue("div", bestMatch == null ? null : bestMatch.getName(), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
+            } else {
+                writer.printOpenTag("td");
             }
-            writer.printOpenTag("td");
-            writer.printTaggedValue("div", bestMatch == null ? null : bestMatch.getName(), "align=center" + (matchesAlign ? " style=\"color:red\"" : ""));
-            writer.printTaggedValue("div", proteinFromTable.getName());
+            writer.printTaggedValue("div", proteinFromAlign.getName());
             writer.printCloseTag("td");
         }
     }
@@ -239,7 +235,7 @@ public class StatisticsGenerator implements Runnable {
     }
 
     private String getOutputFilename() {
-//        return (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + "_" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
-        return (EDGE_OF_THREE_AA ? "3": EDGE_OF_TWO_AA ? "2" : "1") + "_" + (DOUBLE_MASSES ? "doub" : "for") + "_" + ((int) (MassUtil.ERROR_THRESHOLD * 2e6)) + "ppm_" + (TagGenerator.SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("ALIGN") ? "virt" : "exp") + ".html";
+//        return (ConfigReader.getBooleanProperty("USE_VIRTUAL_SPECTRA") ? "virt" : "exp") + "_" + TagGenerator.MIN_TAG_LENGTH + "-" + TagGenerator.MAX_TAG_LENGTH + ".html";
+        return (EDGE_OF_THREE_AA ? "3" : EDGE_OF_TWO_AA ? "2" : "1") + "_" + (USE_RED_BLUE_GRAPH ? "doub" : "for") + "_" + ((int) (MassUtil.ERROR_THRESHOLD * 2e6)) + "ppm_" + (TagGenerator.SCORE_BY_LENGTH ? "len" : "score") + "_" + (ConfigReader.getBooleanProperty("USE_VIRTUAL_SPECTRA") ? "virt" : "exp") + ".html";
     }
 }

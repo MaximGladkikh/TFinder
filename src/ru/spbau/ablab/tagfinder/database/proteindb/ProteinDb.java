@@ -3,18 +3,17 @@ package ru.spbau.ablab.tagfinder.database.proteindb;
 import edu.ucsd.msalign.spec.id.IdCompEValue;
 import ru.spbau.ablab.tagfinder.Protein;
 import ru.spbau.ablab.tagfinder.StatisticsGenerator;
-import ru.spbau.ablab.tagfinder.database.Database;
 import ru.spbau.ablab.tagfinder.path.Path;
 import ru.spbau.ablab.tagfinder.util.AKAutomaton;
 import ru.spbau.ablab.tagfinder.util.ConfigReader;
 import ru.spbau.ablab.tagfinder.util.pairs.Pair;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.PrintWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
 
-import static ru.spbau.ablab.tagfinder.database.Database.*;
+import static ru.spbau.ablab.tagfinder.database.Database.ALIGN_SPECTRA_FILE;
 
 public abstract class ProteinDb {
     protected static final String FASTA_PATH = ConfigReader.getProperty("FASTA_PATH");
@@ -35,6 +34,7 @@ public abstract class ProteinDb {
         return proteins;
     }
 
+    @SuppressWarnings({"UnusedDeclaration"})
     public Protein getProteinById(int id) {
         Protein protein = idToProtein.get(id);
         if (protein == null) {
@@ -59,6 +59,7 @@ public abstract class ProteinDb {
         return protein;
     }
 
+    @SuppressWarnings({"UnusedDeclaration"})
     public Protein getProteinByFullName(String fullName) {
         Protein protein = nameToProtein.get(fullName);
         if (protein == null) {
@@ -68,8 +69,8 @@ public abstract class ProteinDb {
     }
 
     public int getMatchedProteinsNumber(Collection<Path> paths) {
-        assert paths.size() <= StatisticsGenerator.MAX_PATHS;
-        lastMatchedProteins = new HashSet<String>();
+        assert paths.size() <= StatisticsGenerator.MAX_TAGS_IN_SET;
+        lastMatchedProteins = new HashSet<>();
         AKAutomaton automaton = new AKAutomaton(paths);
         for (Protein protein : proteins) {
             if (automaton.acceptsString(protein.getString())) {
@@ -79,49 +80,9 @@ public abstract class ProteinDb {
         return lastMatchedProteins.size();
     }
 
-    private HashMap<Integer, Protein> bestMatches = new HashMap<Integer, Protein>();
-
-    public Protein getBestMatchedProtein(int id) {
-        Protein protein;
-        if (!bestMatches.containsKey(id)) {
-            bestMatches.put(id, protein = Database.getInstance().getBestMatch(id));
-        } else {
-            protein = bestMatches.get(id);
-        }
-        return protein;
-    }
-
     private IdCompEValue comp;
-    private HashMap<Integer, Pair<Double, Protein>> alignResults;
-    private PrintWriter alignWriter;
-    {
-        try {
-            alignWriter = new PrintWriter(new File("pair_list"));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
 
     public Pair<Double, Protein> getBestFromAlign(int id, Collection<Path> paths) {
-//        if (alignResults == null) {
-//            try {
-//                FastScanner scanner = new FastScanner(new File("result_list"));
-//                alignResults = new HashMap<Integer, Pair<Double, Protein>>();
-//                for (String s; (s = scanner.nextLine()) != null && s.trim().length() > 0; ) {
-//                    String[] ss = s.split("\t+");
-//                    int scanId = Integer.parseInt(ss[5]);
-//                    Protein protein = fullnameToProtein.get(ss[9]);
-//                    double eValue = Double.parseDouble(ss[ss.length - 3]);
-//                    Double prev = alignResults.get(scanId) == null ? Double.POSITIVE_INFINITY : alignResults.get(scanId).a;
-//                    if (eValue < prev) {
-//                        alignResults.put(scanId, new Pair<Double, Protein>(eValue, protein));
-//                    }
-//                }
-//            } catch (FileNotFoundException e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
-//        return alignResults.get(id);
         if (comp == null) {
             try {
                 comp = new IdCompEValue(FASTA_PATH, ALIGN_SPECTRA_FILE, 15);
@@ -131,7 +92,7 @@ public abstract class ProteinDb {
         }
         double eValue = Double.POSITIVE_INFINITY;
         Protein best = null;
-        ArrayList<Protein> proteins = new ArrayList<Protein>();
+        ArrayList<Protein> proteins = new ArrayList<>();
         AKAutomaton automaton = new AKAutomaton(paths);
         for (Map.Entry<String, Protein> entry : nameToProtein.entrySet()) {
             if (automaton.acceptsString(entry.getValue().getString())) {
@@ -142,8 +103,6 @@ public abstract class ProteinDb {
             try {
                 System.out.println("starting for " + id + " " + protein.getName());
                 comp.compEValue(id, protein.getName());
-                alignWriter.println(id + " " + protein.getName());
-                alignWriter.flush();
                 for (int i = 0; i < 3; ++i) {
                     for (int j = 0; j < 4; ++j) {
                         double value = comp.getEValue(i, j);
@@ -157,7 +116,6 @@ public abstract class ProteinDb {
                 throw new RuntimeException(e);
             }
         }
-//        System.err.println("id = " + id + " evalue = " + eValue);
-        return new Pair<Double, Protein>(eValue, best);
+        return new Pair<>(eValue, best);
     }
 }

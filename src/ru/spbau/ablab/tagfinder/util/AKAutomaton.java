@@ -22,7 +22,7 @@ public class AKAutomaton {
     }
 
     public AKAutomaton(Collection<Path> paths) {
-        next = new int[1][AA_LET.length];
+        next = new int[1][AA_LETTER.length];
         Arrays.fill(next[ROOT], -1);
         acceptedPath = new Path[1];
         for (Path path : paths) {
@@ -37,12 +37,12 @@ public class AKAutomaton {
     public int getMatchesNumber(String string, double parentMass) {
         int vertex = 0;
         double prefixMass = 0;
-        HashSet<Path> paths = new HashSet<Path>();
+        HashSet<Path> paths = new HashSet<>();
         for (int i = 0; i < string.length(); ++i) {
             int index = AA_INDEX[string.charAt(i)];
             prefixMass += AA_MONO_MASS[index];
             vertex = next[vertex][index];
-            for (int link = acceptedPath[vertex] == null ? previousAcceptedLink[vertex] : vertex; link > 0; link = previousAcceptedLink[link]) {
+            for (int link = acceptedPath[vertex] == null ? previousAcceptedLink[vertex] : vertex; link >= 0; link = previousAcceptedLink[link]) {
                 Path tag = acceptedPath[link];
                 if (!tag.isReversed()) {
                     double position = prefixMass - tag.getMass();
@@ -93,7 +93,7 @@ public class AKAutomaton {
             previousAcceptedLink[vertex] = acceptedPath[link] == null ? previousAcceptedLink[link] : link;
         }
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
-            stringBuilder.append(AA_LET[i]);
+            stringBuilder.append(AA_LETTER[i]);
             if (next[vertex][i] >= 0) {
                 calcLinks(next[vertex][i], stringBuilder);
             } else {

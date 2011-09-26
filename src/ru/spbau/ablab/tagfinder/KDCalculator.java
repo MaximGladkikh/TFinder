@@ -15,7 +15,7 @@ import java.util.TreeMap;
 import static ru.spbau.ablab.tagfinder.database.Database.*;
 
 public class KDCalculator implements Runnable {
-    private static TreeMap<Result, ArrayList<Integer>> bestPairs = new TreeMap<Result, ArrayList<Integer>>();
+    private static TreeMap<Result, ArrayList<Integer>> bestPairs = new TreeMap<>();
 
     private Spectrum spectrum;
     private String sequence;
@@ -28,7 +28,7 @@ public class KDCalculator implements Runnable {
     public static void main(String[] args) throws FileNotFoundException {
         Database database = Database.getInstance();
         for (int id : database.filter(true)) {
-            assert !Database.ALIGN;
+            assert !Database.USE_VIRTUAL_SPECTRA;
             new KDCalculator(database.getSpectraDb().getSpectrum(id), database.getProteinPredictedByAlign(id)).run();
         }
         PrintWriter writer = new PrintWriter("kd.txt");
@@ -55,7 +55,7 @@ public class KDCalculator implements Runnable {
         }
         ArrayList<Integer> list = bestPairs.get(best);
         if (list == null) {
-            bestPairs.put(best, list = new ArrayList<Integer>());
+            bestPairs.put(best, list = new ArrayList<>());
         }
         list.add(spectrum.id);
     }

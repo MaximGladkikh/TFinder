@@ -10,7 +10,7 @@ import static ru.spbau.ablab.tagfinder.database.Database.*;
 
 public class ExperimentalSpectraDb extends SpectraDb {
     public ExperimentalSpectraDb() throws FileNotFoundException {
-        scanToSpectrum = new TreeMap<Integer, Spectrum>();
+        scanToSpectrum = new TreeMap<>();
         File envDir = new File(ENVELOPES_DIR);
         for (File file : envDir.listFiles()) {
             String name = file.getName();

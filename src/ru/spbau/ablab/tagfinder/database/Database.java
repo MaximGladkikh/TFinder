@@ -28,19 +28,18 @@ public class Database {
     public static final String SPECTRUM_FILE_PREFIX = ConfigReader.getProperty("SPECTRUM_FILE_PREFIX");
     public static final String ALIGN_RESULT_FILE = ConfigReader.getProperty("ALIGN_RESULT_FILE");
     public static final String ALIGN_SPECTRA_FILE = ConfigReader.getProperty("ALIGN_SPECTRA_FILE");
-    public static final boolean ALIGN = ConfigReader.getBooleanProperty("ALIGN");
+    public static final boolean USE_VIRTUAL_SPECTRA = ConfigReader.getBooleanProperty("USE_VIRTUAL_SPECTRA");
     private static final String MASS_LIST = ConfigReader.getProperty("MASS_LIST");
-    public static final char[] AA_LET;
+    public static final char[] AA_LETTER;
     public static final double[] AA_MONO_MASS;
     public static final int ALPHABET_SIZE = 19;
-    public static final double[] AA_MASS_ARRAY = new double[256];
+    public static final double[] AA_MASS_ARRAY = new double[Character.MAX_VALUE];
     public static final int[] AA_INDEX = new int[Character.MAX_VALUE];
 
     private Map<Integer, Double> idToEValue;
     private ProteinDb proteinDb;
     private ModifiedProteinDb modifiedProteinDb;
     private FastaProteinDb fastaProteinDb;
-    private VirtualSpectraDb virtualSpectraDb;
     private ExperimentalSpectraDb experimentalSpectraDb;
     private SpectraDb spectraDb;
 
@@ -54,25 +53,24 @@ public class Database {
         for (int i = 0; i < acids.length; ++i) {
             char c = scanner.nextToken().charAt(0);
             double mass = scanner.nextDouble();
-            acids[i] = new ComparablePair<Double, Character>(mass, c);
+            acids[i] = new ComparablePair<>(mass, c);
         }
         Arrays.sort(acids);
-        AA_LET = new char[ALPHABET_SIZE];
+        AA_LETTER = new char[ALPHABET_SIZE];
         AA_MONO_MASS = new double[ALPHABET_SIZE];
         for (int i = 0; i < acids.length; ++i) {
-            AA_LET[i] = acids[i].b;
+            AA_LETTER[i] = acids[i].b;
             AA_MONO_MASS[i] = acids[i].a;
         }
         for (int i = 0; i < ALPHABET_SIZE; ++i) {
-            AA_INDEX[AA_LET[i]] = i;
+            AA_INDEX[AA_LETTER[i]] = i;
         }
-        Database database = null;
         Arrays.fill(AA_MASS_ARRAY, Double.NaN);
-        for (int i = 0; i < AA_LET.length; ++i) {
-            AA_MASS_ARRAY[AA_LET[i]] = AA_MONO_MASS[i];
+        for (int i = 0; i < AA_LETTER.length; ++i) {
+            AA_MASS_ARRAY[AA_LETTER[i]] = AA_MONO_MASS[i];
         }
         try {
-            database = new Database();
+            new Database();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -85,12 +83,13 @@ public class Database {
     private Database() throws FileNotFoundException {
         INSTANCE = this;
         long startTime = System.currentTimeMillis();
+        //Order matters
         experimentalSpectraDb = new ExperimentalSpectraDb();
-        virtualSpectraDb = new VirtualSpectraDb();
+        VirtualSpectraDb virtualSpectraDb = new VirtualSpectraDb();
         idToEValue = virtualSpectraDb.getIdToEValue();
         fastaProteinDb = new FastaProteinDb();
         modifiedProteinDb = new ModifiedProteinDb();
-        if (ALIGN) {
+        if (USE_VIRTUAL_SPECTRA) {
             proteinDb = modifiedProteinDb;
             spectraDb = virtualSpectraDb;
         } else {
@@ -118,7 +117,7 @@ public class Database {
     }
 
     public Protein getBestMatch(int spectrumId) {
-        Collection<Path> tags = TagGenerator.getTopTags(spectrumId, StatisticsGenerator.MAX_PATHS * 5);
+        Collection<Path> tags = TagGenerator.getTopTags(spectrumId, StatisticsGenerator.MAX_TAGS_IN_SET * 5);
         if (tags.isEmpty()) {
             return null;
         }
@@ -141,7 +140,7 @@ public class Database {
 
 
     public ArrayList<Integer> getUnmatchedIds() {
-        ArrayList<Integer> ans = new ArrayList<Integer>();
+        ArrayList<Integer> ans = new ArrayList<>();
         for (int id : spectraDb.getSpectraIds()) {
             Double eValue = idToEValue.get(id);
             if (eValue != null && eValue >= UNIDENTIFIED_THRESHOLD) {
@@ -161,10 +160,9 @@ public class Database {
         if (scanIds.isEmpty()) {
             scanIds = spectraDb.getSpectraIds();
         }
-        ArrayList<Integer> ans = new ArrayList<Integer>();
+        ArrayList<Integer> ans = new ArrayList<>();
         for (int id : scanIds) {
             Double eValue = idToEValue.get(id);
-//            System.err.println(id + " " + eValue);
             if (eValue == null) {
                 continue;
             }
@@ -178,7 +176,6 @@ public class Database {
 
     public Protein getProteinPredictedByAlign(int id) {
         String name = modifiedProteinDb.getProteinByScanId(id).getName();
-//        return modifiedProteinDb.getProteinByScanId(id);
         return fastaProteinDb.getProteinByName(name);
     }
 

@@ -28,10 +28,6 @@ public class MassUtil implements Comparator<Double> {
 
     }
 
-    public static boolean same(double d1, double d2, double epsilon) {
-        return compare(d1, d2, epsilon) == 0;
-    }
-
     public static boolean same(double d1, double d2) {
         return compare(d1, d2, ERROR_THRESHOLD) == 0;
     }
@@ -55,14 +51,7 @@ public class MassUtil implements Comparator<Double> {
         return difference <= ERROR_THRESHOLD * (m1 + m2);
     }
 
-    public static boolean sameForDeletion(double mass, double offset) {
-        return Math.abs(mass - offset) < 1e-1;
-    }
-
     public static double convertIonsType(double mass, double parentMass) {
-//        if (Database.ALIGN) {
-//            return parentMass - mass + Database.WATER_MASS;
-//        }
         return parentMass - mass;
     }
 }

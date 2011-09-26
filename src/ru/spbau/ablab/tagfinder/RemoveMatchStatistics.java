@@ -65,13 +65,13 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
             boolean[] delete = new boolean[experimental.envelopes.length];
             Protein protein = database.getProteinPredictedByAlign(id);
             List<Path> paths = TagGenerator.getAllPaths(database, id);
-            TreeSet<Double> shifts = new TreeSet<Double>(MassUtil.MASS_COMPARATOR);
+            TreeSet<Double> shifts = new TreeSet<>(MassUtil.MASS_COMPARATOR);
             int count = 0;
             for (Path path : paths) {
                 if (protein.contains(path)) {
                     shifts.add(protein.getLastBestShift());
                 }
-                if (++count == MAX_PATHS_FOR_SHIFTS) {
+                if (++count >= MAX_PATHS_FOR_SHIFTS) {
                     break;
                 }
             }
@@ -80,7 +80,7 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
                 success |= removeTheoreticalSpectrum(experimental, delete, protein, -d);
                 success |= removeTheoreticalSpectrum(experimental, delete, protein, d);
             }
-            ArrayList<Envelope> envelopes = new ArrayList<Envelope>();
+            ArrayList<Envelope> envelopes = new ArrayList<>();
             for (int i = 0; i < delete.length; ++i) {
                 if (!delete[i]) {
                     envelopes.add(experimental.envelopes[i]);
@@ -99,13 +99,13 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
     }
 
 
-    private boolean removeTheoreticalSpectrum(Spectrum experimental, boolean[] delete, Protein protein, double d) {
+    private boolean removeTheoreticalSpectrum(Spectrum experimental, boolean[] delete, Protein protein, double shift) {
         if (protein == null) {
             return false;
         }
         boolean deleted = false;
         for (int i = 0; i < protein.masses.length; ++i) {
-            double mass = protein.masses[i] + d;
+            double mass = protein.masses[i] + shift;
             if (mass == 0 || MassUtil.compare(mass, experimental.parentMass) == 0) {
                 continue;
             }
@@ -121,6 +121,6 @@ public class RemoveMatchStatistics extends StatisticsGenerator {
             return  false;
         }
         Envelope closest = experimental.envelopes[index];
-        return MassUtil.sameForDeletion(mass, closest.getMass()) && !delete[index] && (delete[index] = true);
+        return /*MassUtil.sameForDeletion(mass, closest.getMass())*/ MassUtil.compare(mass, closest.getMass()) == 0 && !delete[index] && (delete[index] = true);
     }
 }
